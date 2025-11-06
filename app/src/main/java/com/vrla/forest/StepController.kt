@@ -3,12 +3,12 @@
 import kotlin.math.max
 
 class StepController {
-    
-    private val minSpeed = 0.3f
-    private val maxSpeed = 2.5f
-    private val baseStepsPerMinute = 60
+
+    private val minSpeed = 0.3f  // No movement
+    private val minSpeedWhenMoving = 0.7f  // Slow walking
+    private val maxSpeed = 1.5f  // Fast jogging
     private val windowSizeMs = 10000L
-    
+
     private val stepTimestamps = mutableListOf<Long>()
     private var currentSpeed = minSpeed
     
@@ -27,18 +27,18 @@ class StepController {
             currentSpeed = minSpeed
             return
         }
-        
+
         val windowSizeMinutes = windowSizeMs / 60000f
         val stepsInWindow = stepTimestamps.size
         val stepsPerMinute = stepsInWindow / windowSizeMinutes
-        
+
         currentSpeed = when {
-            stepsPerMinute < 10 -> minSpeed
-            stepsPerMinute >= 120 -> maxSpeed
+            stepsPerMinute < 10 -> minSpeed  // No movement: 0.3x
+            stepsPerMinute >= 120 -> maxSpeed  // Fast jogging: 1.5x
             else -> {
-                val ratio = stepsPerMinute / baseStepsPerMinute
-                val speed = minSpeed + (1.0f - minSpeed) * (ratio - 0.167f) / 0.833f
-                speed.coerceIn(minSpeed, maxSpeed)
+                // Linear interpolation between 0.7x (at 10 steps/min) and 1.5x (at 120 steps/min)
+                val progress = (stepsPerMinute - 10f) / 110f
+                minSpeedWhenMoving + progress * (maxSpeed - minSpeedWhenMoving)
             }
         }
     }

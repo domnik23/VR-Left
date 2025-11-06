@@ -43,6 +43,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private var stepCounter: Sensor? = null
 
     private var isVRActive = false
+    private var isVideoStarted = false
     private var startTime = 0L
     private var totalSteps = 0
     private var sessionSteps = 0
@@ -159,8 +160,8 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             totalSteps = 0
         }
 
-        // Video starten - VRRenderer wartet automatisch bis Surface bereit ist
-        vrRenderer.startVideo()
+        // Video startet erst beim ersten Schritt
+        android.util.Log.d("MainActivity", "Waiting for first step to start video...")
 
         startUIUpdateLoop()
         calibrateOrientation()
@@ -250,6 +251,14 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                         sessionSteps += newSteps
                         totalSteps = currentTotal
                         stepController.addStep()
+
+                        // Start video on first step
+                        if (!isVideoStarted) {
+                            isVideoStarted = true
+                            vrRenderer.startVideo()
+                            android.util.Log.d("MainActivity", "First step detected! Starting video...")
+                        }
+
                         android.util.Log.d("MainActivity", "Steps: $sessionSteps")
                     }
                 }
