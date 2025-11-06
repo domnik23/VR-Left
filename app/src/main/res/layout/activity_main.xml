@@ -21,6 +21,15 @@
     android:background="#60000000">
 
     <TextView
+        android:id="@+id/versionText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="v1.0"
+        android:textColor="#AAAAAA"
+        android:textSize="12sp"
+        android:layout_marginEnd="16dp" />
+
+    <TextView
         android:id="@+id/stepCountText"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -65,16 +74,5 @@
         android:textSize="14sp" />
 
 </LinearLayout>
-
-    <Button
-        android:id="@+id/calibrateButton"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom|center_horizontal"
-        android:layout_marginBottom="40dp"
-        android:text="Recalibrate"
-        android:textSize="16sp"
-        android:padding="16dp"
-        android:backgroundTint="#FF9800" />
 
 </FrameLayout>
