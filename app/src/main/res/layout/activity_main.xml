@@ -21,6 +21,15 @@
     android:background="#60000000">
 
     <TextView
+        android:id="@+id/versionText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="v1.0"
+        android:textColor="#AAAAAA"
+        android:textSize="12sp"
+        android:layout_marginEnd="16dp" />
+
+    <TextView
         android:id="@+id/stepCountText"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"

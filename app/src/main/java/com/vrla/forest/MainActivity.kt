@@ -28,6 +28,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private lateinit var stepController: StepController
 
     private lateinit var overlayContainer: View
+    private lateinit var versionText: TextView
     private lateinit var stepCountText: TextView
     private lateinit var speedText: TextView
     private lateinit var distanceText: TextView
@@ -73,11 +74,20 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private fun initViews() {
         glSurfaceView = findViewById(R.id.glSurfaceView)
         overlayContainer = findViewById(R.id.overlayContainer)
+        versionText = findViewById(R.id.versionText)
         stepCountText = findViewById(R.id.stepCountText)
         speedText = findViewById(R.id.speedText)
         distanceText = findViewById(R.id.distanceText)
         timeText = findViewById(R.id.timeText)
         caloriesText = findViewById(R.id.caloriesText)
+
+        // Set version number
+        try {
+            val packageInfo = packageManager.getPackageInfo(packageName, 0)
+            versionText.text = "v${packageInfo.versionName}"
+        } catch (e: Exception) {
+            versionText.text = "v?.?"
+        }
 
         glSurfaceView.setEGLContextClientVersion(3)
         vrRenderer = VRRenderer(this)
