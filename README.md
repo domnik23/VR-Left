@@ -1,6 +1,6 @@
-﻿# VRLA - VR Forest Jogging Experience
+﻿# VRLA - VR  Experience
 
-Android VR app for immersive forest jogging with step counter integration.
+Android VR app for immersive jogging with step counter integration.
 
 ## Features
 - 360° Stereo VR video playback
