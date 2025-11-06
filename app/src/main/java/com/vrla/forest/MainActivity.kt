@@ -8,10 +8,11 @@ import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.opengl.GLSurfaceView
 import android.os.Bundle
+import android.view.KeyEvent
 import android.view.View
 import android.view.WindowManager
-import android.widget.Button
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -26,13 +27,16 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private lateinit var sensorManager: SensorManager
     private lateinit var stepController: StepController
 
-    private lateinit var calibrateButton: Button
     private lateinit var overlayContainer: View
     private lateinit var stepCountText: TextView
     private lateinit var speedText: TextView
     private lateinit var distanceText: TextView
     private lateinit var timeText: TextView
     private lateinit var caloriesText: TextView
+
+    // Volume button double-press detection
+    private var lastVolumeUpPressTime = 0L
+    private val DOUBLE_PRESS_INTERVAL = 500L // milliseconds
 
     private var rotationVector: Sensor? = null
     private var stepCounter: Sensor? = null
@@ -68,7 +72,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
     private fun initViews() {
         glSurfaceView = findViewById(R.id.glSurfaceView)
-        calibrateButton = findViewById(R.id.calibrateButton)
         overlayContainer = findViewById(R.id.overlayContainer)
         stepCountText = findViewById(R.id.stepCountText)
         speedText = findViewById(R.id.speedText)
@@ -88,7 +91,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             )
         }
 
-        calibrateButton.setOnClickListener { calibrateOrientation() }
         overlayContainer.visibility = View.VISIBLE
     }
 
@@ -157,6 +159,26 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private fun calibrateOrientation() {
         calibrationYaw = orientationAngles[0]
         android.util.Log.d("MainActivity", "Orientation calibrated: $calibrationYaw")
+        Toast.makeText(this, "View recalibrated", Toast.LENGTH_SHORT).show()
+    }
+
+    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        if (keyCode == KeyEvent.KEYCODE_VOLUME_UP) {
+            val currentTime = System.currentTimeMillis()
+            val timeSinceLastPress = currentTime - lastVolumeUpPressTime
+
+            if (timeSinceLastPress < DOUBLE_PRESS_INTERVAL) {
+                // Double press detected!
+                calibrateOrientation()
+                lastVolumeUpPressTime = 0L // Reset to prevent triple-press
+                return true // Consume the event (don't change volume)
+            } else {
+                // First press
+                lastVolumeUpPressTime = currentTime
+            }
+        }
+
+        return super.onKeyDown(keyCode, event)
     }
 
     private fun startUIUpdateLoop() {

@@ -66,15 +66,4 @@
 
 </LinearLayout>
 
-    <Button
-        android:id="@+id/calibrateButton"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom|center_horizontal"
-        android:layout_marginBottom="40dp"
-        android:text="Recalibrate"
-        android:textSize="16sp"
-        android:padding="16dp"
-        android:backgroundTint="#FF9800" />
-
 </FrameLayout>
