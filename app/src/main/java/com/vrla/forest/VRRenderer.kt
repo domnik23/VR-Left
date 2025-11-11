@@ -3,6 +3,7 @@
 import android.content.Context
 import android.graphics.SurfaceTexture
 import android.media.MediaPlayer
+import android.net.Uri
 import android.opengl.GLES11Ext
 import android.opengl.GLES30
 import android.opengl.GLSurfaceView
@@ -22,6 +23,7 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
 
     private var surfaceTexture: SurfaceTexture? = null
     private var mediaPlayer: MediaPlayer? = null
+    private var videoUri: Uri? = null
     private var textureId = 0
     private var program = 0
 
@@ -283,18 +285,27 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
             return
         }
 
-        android.util.Log.d("VRRenderer", "SurfaceTexture OK, creating MediaPlayer")
+        if (videoUri == null) {
+            android.util.Log.e("VRRenderer", "Video URI is NULL!")
+            return
+        }
+
+        android.util.Log.d("VRRenderer", "SurfaceTexture OK, creating MediaPlayer with URI: $videoUri")
         mediaPlayer?.release()
 
         try {
-            mediaPlayer = MediaPlayer.create(context, R.raw.forest_jog)
-            if (mediaPlayer == null) {
-                android.util.Log.e("VRRenderer", "MediaPlayer.create returned NULL - check if forest_jog.mp4 exists!")
-                return
-            }
+            // OLD METHOD - using res/raw (commented out)
+            // mediaPlayer = MediaPlayer.create(context, R.raw.forest_jog)
+            // if (mediaPlayer == null) {
+            //     android.util.Log.e("VRRenderer", "MediaPlayer.create returned NULL - check if forest_jog.mp4 exists!")
+            //     return
+            // }
 
-            mediaPlayer?.apply {
+            // NEW METHOD - using external video URI
+            mediaPlayer = MediaPlayer().apply {
+                setDataSource(context, videoUri!!)
                 setSurface(Surface(surfaceTexture))
+                prepare()
                 isLooping = true
                 playbackParams = playbackParams.setSpeed(playbackSpeed)
                 start()
@@ -308,6 +319,11 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
             android.util.Log.e("VRRenderer", "Error starting video: ${e.message}")
             e.printStackTrace()
         }
+    }
+
+    fun setVideoUri(uri: Uri) {
+        videoUri = uri
+        android.util.Log.d("VRRenderer", "Video URI set to: $uri")
     }
 
     fun setPlaybackSpeed(speed: Float) {

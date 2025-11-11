@@ -1,8 +1,16 @@
 ﻿package com.vrla.forest
 
 import android.Manifest
+import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.database.Cursor
 import android.hardware.Sensor
+import android.net.Uri
+import android.os.Build
+import android.os.Environment
+import android.provider.MediaStore
+import androidx.activity.result.contract.ActivityResultContracts
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
@@ -52,8 +60,34 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private val orientationAngles = FloatArray(3)
     private var calibrationYaw = 0f
 
+    private var selectedVideoUri: Uri? = null
+
+    private val videoPickerLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == RESULT_OK) {
+            result.data?.data?.let { uri ->
+                contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+                selectedVideoUri = uri
+                saveVideoUri(uri.toString())
+                initializeVRWithVideo()
+            }
+        } else {
+            // User cancelled - exit app
+            Toast.makeText(this, "Video is required to run the app", Toast.LENGTH_LONG).show()
+            finish()
+        }
+    }
+
     companion object {
         private const val PERMISSION_REQUEST_CODE = 100
+        private const val STORAGE_PERMISSION_REQUEST_CODE = 101
+        private const val DEFAULT_VIDEO_NAME = "forest_jog.mp4"
+        private const val PREFS_NAME = "VRLAPrefs"
+        private const val KEY_VIDEO_URI = "video_uri"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -66,10 +100,8 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         initSensors()
         checkPermissions()
 
-        // Start VR nach kurzer Verzögerung (damit OpenGL Zeit hat)
-        glSurfaceView.postDelayed({
-            startVRExperience()
-        }, 500)
+        // Check for video before starting VR
+        findAndLoadVideo()
     }
 
     private fun initViews() {
@@ -129,24 +161,161 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         grantResults: IntArray
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == PERMISSION_REQUEST_CODE) {
-            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                // Permission granted - restart sensors
-                if (isVRActive) {
-                    stepCounter?.let {
-                        sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
+        when (requestCode) {
+            PERMISSION_REQUEST_CODE -> {
+                if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    // Permission granted - restart sensors
+                    if (isVRActive) {
+                        stepCounter?.let {
+                            sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
+                        }
                     }
+                } else {
+                    stepCountText.text = "Permission needed for step tracking"
                 }
-            } else {
-                stepCountText.text = "Permission needed for step tracking"
+            }
+            STORAGE_PERMISSION_REQUEST_CODE -> {
+                if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    // Storage permission granted - continue with video search
+                    continueVideoSearch()
+                } else {
+                    // No permission - open file picker directly
+                    openVideoPicker()
+                }
             }
         }
+    }
+
+    private fun findAndLoadVideo() {
+        // OLD METHOD - using res/raw (commented out)
+        // Check if default video exists in res/raw
+        // val resourceId = resources.getIdentifier("forest_jog", "raw", packageName)
+        // if (resourceId != 0) {
+        //     selectedVideoUri = Uri.parse("android.resource://$packageName/$resourceId")
+        //     initializeVRWithVideo()
+        //     return
+        // }
+
+        // Check saved video URI
+        val savedUri = getSavedVideoUri()
+        if (savedUri != null) {
+            try {
+                contentResolver.openInputStream(savedUri)?.close()
+                selectedVideoUri = savedUri
+                initializeVRWithVideo()
+                return
+            } catch (e: Exception) {
+                android.util.Log.w("MainActivity", "Saved video no longer accessible: ${e.message}")
+            }
+        }
+
+        // Check storage permissions and search for default video
+        if (checkStoragePermissions()) {
+            continueVideoSearch()
+        }
+    }
+
+    private fun continueVideoSearch() {
+        // Search in Movies/Videos for forest_jog.mp4
+        val foundUri = searchForDefaultVideo()
+        if (foundUri != null) {
+            selectedVideoUri = foundUri
+            saveVideoUri(foundUri.toString())
+            initializeVRWithVideo()
+        } else {
+            // Not found - open file picker
+            openVideoPicker()
+        }
+    }
+
+    private fun checkStoragePermissions(): Boolean {
+        val permission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            Manifest.permission.READ_MEDIA_VIDEO
+        } else {
+            Manifest.permission.READ_EXTERNAL_STORAGE
+        }
+
+        return if (ContextCompat.checkSelfPermission(this, permission) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(permission),
+                STORAGE_PERMISSION_REQUEST_CODE
+            )
+            false
+        } else {
+            true
+        }
+    }
+
+    private fun searchForDefaultVideo(): Uri? {
+        try {
+            val projection = arrayOf(
+                MediaStore.Video.Media._ID,
+                MediaStore.Video.Media.DISPLAY_NAME
+            )
+            val selection = "${MediaStore.Video.Media.DISPLAY_NAME} = ?"
+            val selectionArgs = arrayOf(DEFAULT_VIDEO_NAME)
+
+            contentResolver.query(
+                MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
+                projection,
+                selection,
+                selectionArgs,
+                null
+            )?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Video.Media._ID)
+                    val id = cursor.getLong(idColumn)
+                    android.util.Log.d("MainActivity", "Found default video: $DEFAULT_VIDEO_NAME")
+                    return Uri.withAppendedPath(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, id.toString())
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("MainActivity", "Error searching for video: ${e.message}")
+        }
+        return null
+    }
+
+    private fun openVideoPicker() {
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "video/mp4"
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
+        }
+        videoPickerLauncher.launch(intent)
+    }
+
+    private fun saveVideoUri(uriString: String) {
+        getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString(KEY_VIDEO_URI, uriString)
+            .apply()
+    }
+
+    private fun getSavedVideoUri(): Uri? {
+        val uriString = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(KEY_VIDEO_URI, null)
+        return uriString?.let { Uri.parse(it) }
+    }
+
+    private fun initializeVRWithVideo() {
+        android.util.Log.d("MainActivity", "Initializing VR with video: $selectedVideoUri")
+        // Start VR after short delay (so OpenGL has time)
+        glSurfaceView.postDelayed({
+            startVRExperience()
+        }, 500)
     }
 
     private fun startVRExperience() {
         if (isVRActive) return
 
         android.util.Log.d("MainActivity", "Starting VR Experience")
+
+        // Set video URI in renderer before starting
+        selectedVideoUri?.let { uri ->
+            vrRenderer.setVideoUri(uri)
+        }
 
         isVRActive = true
         startTime = System.currentTimeMillis()
