@@ -313,6 +313,9 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
                 isLooping = false  // Video plays once, then shows finish flag
                 playbackParams = playbackParams.setSpeed(playbackSpeed)
 
+                // Set volume from AppConfig
+                setVolume(AppConfig.videoVolume, AppConfig.videoVolume)
+
                 // Set completion listener
                 setOnCompletionListener {
                     android.util.Log.d("VRRenderer", "Video completed!")
@@ -373,6 +376,10 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
                 android.util.Log.e("VRRenderer", "Error restarting video: ${e.message}")
             }
         }
+    }
+
+    fun updateVolume() {
+        mediaPlayer?.setVolume(AppConfig.videoVolume, AppConfig.videoVolume)
     }
 
     fun release() {

@@ -44,6 +44,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private lateinit var timeText: TextView
     private lateinit var caloriesText: TextView
     private lateinit var finishText: TextView
+    private lateinit var settingsButton: TextView
 
     // Volume button double-press detection
     private var lastVolumeUpPressTime = 0L
@@ -99,6 +100,9 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         setContentView(R.layout.activity_main)
 
+        // Load settings from preferences
+        AppConfig.loadFromPreferences(this)
+
         initViews()
         initSensors()
         checkPermissions()
@@ -118,6 +122,13 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         timeText = findViewById(R.id.timeText)
         caloriesText = findViewById(R.id.caloriesText)
         finishText = findViewById(R.id.finishText)
+        settingsButton = findViewById(R.id.settingsButton)
+
+        // Settings button click
+        settingsButton.setOnClickListener {
+            val intent = Intent(this, SettingsActivity::class.java)
+            startActivity(intent)
+        }
 
         // Set version number
         try {
@@ -504,6 +515,12 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     override fun onResume() {
         super.onResume()
         glSurfaceView.onResume()
+
+        // Reload settings when returning from SettingsActivity
+        AppConfig.loadFromPreferences(this)
+
+        // Update video volume if player is running
+        vrRenderer.updateVolume()
     }
 
     override fun onPause() {
