@@ -8,9 +8,9 @@ object AppConfig {
     var videoVolume = 0.5f  // 0.0 to 1.0
 
     // Speed Settings
-    var minSpeed = 0.3f          // No movement
-    var minSpeedMoving = 0.7f    // Slow walking
-    var maxSpeed = 1.5f          // Fast jogging
+    var minSpeed = 0.4f          // No movement (0.0 - 1.0)
+    var minSpeedMoving = 0.7f    // Slow walking (0.0 - 1.0)
+    var maxSpeed = 1.5f          // Fast jogging (1.0 - 2.0)
 
     // VR Settings
     var ipd = 0.064f  // Interpupillary distance in meters (64mm)
@@ -38,7 +38,7 @@ object AppConfig {
         caloriesPerKm = prefs.getInt("calories_per_km", 60)
 
         // Speed
-        minSpeed = prefs.getFloat("min_speed", 0.3f)
+        minSpeed = prefs.getFloat("min_speed", 0.4f)
         minSpeedMoving = prefs.getFloat("min_speed_moving", 0.7f)
         maxSpeed = prefs.getFloat("max_speed", 1.5f)
     }

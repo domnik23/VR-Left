@@ -213,7 +213,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Min Speed (keine Bewegung)"
+            android:text="Min Speed (keine Bewegung) • 0.0 - 1.0x"
             android:textColor="#FFFFFF"
             android:textSize="14sp" />
 
@@ -229,14 +229,14 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:max="50"
-                android:progress="30" />
+                android:max="100"
+                android:progress="40" />
 
             <TextView
                 android:id="@+id/minSpeedValueText"
                 android:layout_width="70dp"
                 android:layout_height="wrap_content"
-                android:text="0.3x"
+                android:text="0.4x"
                 android:textColor="#FFFFFF"
                 android:textAlignment="textEnd" />
         </LinearLayout>
@@ -244,7 +244,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Min Speed (beim Gehen)"
+            android:text="Min Speed (beim Gehen) • 0.0 - 1.0x"
             android:textColor="#FFFFFF"
             android:textSize="14sp" />
 
@@ -275,7 +275,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Max Speed (schnelles Joggen)"
+            android:text="Max Speed (schnelles Joggen) • 1.0 - 2.0x"
             android:textColor="#FFFFFF"
             android:textSize="14sp" />
 
@@ -291,8 +291,8 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:max="200"
-                android:progress="150" />
+                android:max="100"
+                android:progress="50" />
 
             <TextView
                 android:id="@+id/maxSpeedValueText"

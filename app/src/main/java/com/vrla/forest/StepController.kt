@@ -25,10 +25,10 @@ class StepController {
         val stepsPerMinute = stepsInWindow / windowSizeMinutes
 
         currentSpeed = when {
-            stepsPerMinute < 10 -> AppConfig.minSpeed  // No movement: 0.3x
-            stepsPerMinute >= 120 -> AppConfig.maxSpeed  // Fast jogging: 1.5x
+            stepsPerMinute < 10 -> AppConfig.minSpeed  // No movement (default: 0.4x)
+            stepsPerMinute >= 120 -> AppConfig.maxSpeed  // Fast jogging (default: 1.5x)
             else -> {
-                // Linear interpolation between 0.7x (at 10 steps/min) and 1.5x (at 120 steps/min)
+                // Linear interpolation between minSpeedMoving (default: 0.7x at 10 steps/min) and maxSpeed (at 120 steps/min)
                 val progress = (stepsPerMinute - 10f) / 110f
                 AppConfig.minSpeedMoving + progress * (AppConfig.maxSpeed - AppConfig.minSpeedMoving)
             }

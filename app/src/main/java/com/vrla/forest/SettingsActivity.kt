@@ -130,7 +130,7 @@ class SettingsActivity : AppCompatActivity() {
 
         minSpeedSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                val speed = progress * 0.01f // 0.0x to 0.5x
+                val speed = progress * 0.01f // 0.0x to 1.0x
                 minSpeedValueText.text = String.format("%.1fx", speed)
             }
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
@@ -148,7 +148,7 @@ class SettingsActivity : AppCompatActivity() {
 
         maxSpeedSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                val speed = progress * 0.01f // 0.0x to 2.0x
+                val speed = 1.0f + progress * 0.01f // 1.0x to 2.0x
                 maxSpeedValueText.text = String.format("%.1fx", speed)
             }
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
@@ -182,12 +182,12 @@ class SettingsActivity : AppCompatActivity() {
         caloriesSeekBar.progress = prefs.getInt("calories_per_km", 60) - 30
 
         // Speed
-        val minSpeed = prefs.getFloat("min_speed", 0.3f)
-        minSpeedSeekBar.progress = (minSpeed * 100).toInt()
+        val minSpeed = prefs.getFloat("min_speed", 0.4f)
+        minSpeedSeekBar.progress = (minSpeed * 100).toInt() // 0.0 - 1.0
         val minSpeedMoving = prefs.getFloat("min_speed_moving", 0.7f)
-        minSpeedMovingSeekBar.progress = (minSpeedMoving * 100).toInt()
+        minSpeedMovingSeekBar.progress = (minSpeedMoving * 100).toInt() // 0.0 - 1.0
         val maxSpeed = prefs.getFloat("max_speed", 1.5f)
-        maxSpeedSeekBar.progress = (maxSpeed * 100).toInt()
+        maxSpeedSeekBar.progress = ((maxSpeed - 1.0f) * 100).toInt() // 1.0 - 2.0
     }
 
     private fun saveSettings() {
@@ -208,11 +208,11 @@ class SettingsActivity : AppCompatActivity() {
         prefs.putInt("calories_per_km", caloriesPerKm)
 
         // Speed
-        val minSpeed = minSpeedSeekBar.progress * 0.01f
+        val minSpeed = minSpeedSeekBar.progress * 0.01f // 0.0 - 1.0
         prefs.putFloat("min_speed", minSpeed)
-        val minSpeedMoving = minSpeedMovingSeekBar.progress * 0.01f
+        val minSpeedMoving = minSpeedMovingSeekBar.progress * 0.01f // 0.0 - 1.0
         prefs.putFloat("min_speed_moving", minSpeedMoving)
-        val maxSpeed = maxSpeedSeekBar.progress * 0.01f
+        val maxSpeed = 1.0f + maxSpeedSeekBar.progress * 0.01f // 1.0 - 2.0
         prefs.putFloat("max_speed", maxSpeed)
 
         prefs.apply()
@@ -236,9 +236,9 @@ class SettingsActivity : AppCompatActivity() {
         ipdSeekBar.progress = 14 // 64mm
         strideLengthSeekBar.progress = 25 // 0.75m
         caloriesSeekBar.progress = 30 // 60 kcal/km
-        minSpeedSeekBar.progress = 30 // 0.3x
+        minSpeedSeekBar.progress = 40 // 0.4x
         minSpeedMovingSeekBar.progress = 70 // 0.7x
-        maxSpeedSeekBar.progress = 150 // 1.5x
+        maxSpeedSeekBar.progress = 50 // 1.5x (1.0 + 0.5)
 
         Toast.makeText(this, "Auf Standardwerte zurückgesetzt", Toast.LENGTH_SHORT).show()
     }
