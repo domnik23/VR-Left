@@ -48,13 +48,15 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
     private val sphereRadius = 10f
     private val sphereStacks = 30
     private val sphereSectors = 60
-    private val ipd = 0.064f
 
     private var screenWidth = 1920
     private var screenHeight = 1080
 
     private var isVideoReadyToStart = false
     private var surfaceCreated = false
+    private var videoEnded = false
+
+    var onVideoEnded: (() -> Unit)? = null
 
     override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {
         android.util.Log.d("VRRenderer", "onSurfaceCreated")
@@ -104,7 +106,9 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
 
         // Right eye
         GLES30.glViewport(screenWidth / 2, 0, screenWidth / 2, screenHeight)
-        drawSphere(viewMatrixRight, 0.5f)
+        // Mono mode: both eyes see the same (offset 0.0), Stereo mode: right eye sees right half (offset 0.5)
+        val rightEyeOffset = if (AppConfig.stereoMode) 0.5f else 0f
+        drawSphere(viewMatrixRight, rightEyeOffset)
     }
 
     private fun setupViewMatrices() {
@@ -114,12 +118,12 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
         Matrix.rotateM(modelMatrix, 0, -roll, 0f, 0f, 1f)
 
         Matrix.setIdentityM(viewMatrixLeft, 0)
-        Matrix.translateM(viewMatrixLeft, 0, ipd / 2f, 0f, 0f)
+        Matrix.translateM(viewMatrixLeft, 0, AppConfig.ipd / 2f, 0f, 0f)
         Matrix.multiplyMM(tempMatrix, 0, viewMatrixLeft, 0, modelMatrix, 0)
         System.arraycopy(tempMatrix, 0, viewMatrixLeft, 0, 16)
 
         Matrix.setIdentityM(viewMatrixRight, 0)
-        Matrix.translateM(viewMatrixRight, 0, -ipd / 2f, 0f, 0f)
+        Matrix.translateM(viewMatrixRight, 0, -AppConfig.ipd / 2f, 0f, 0f)
         Matrix.multiplyMM(tempMatrix, 0, viewMatrixRight, 0, modelMatrix, 0)
         System.arraycopy(tempMatrix, 0, viewMatrixRight, 0, 16)
     }
@@ -306,10 +310,20 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
                 setDataSource(context, videoUri!!)
                 setSurface(Surface(surfaceTexture))
                 prepare()
-                isLooping = true
+                isLooping = false  // Video plays once, then shows finish flag
                 playbackParams = playbackParams.setSpeed(playbackSpeed)
+
+                // Set completion listener
+                setOnCompletionListener {
+                    android.util.Log.d("VRRenderer", "Video completed!")
+                    videoEnded = true
+                    onVideoEnded?.invoke()
+                }
+
                 start()
             }
+
+            videoEnded = false
 
             // Hintergrund auf schwarz ändern sobald Video läuft
             GLES30.glClearColor(0f, 0f, 0f, 1f)
@@ -343,6 +357,22 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
 
     override fun onFrameAvailable(surfaceTexture: SurfaceTexture?) {
         updateTexture = true
+    }
+
+    fun restartVideo() {
+        android.util.Log.d("VRRenderer", "Restarting video from beginning")
+        mediaPlayer?.let {
+            try {
+                it.seekTo(0)
+                it.playbackParams = it.playbackParams.setSpeed(playbackSpeed)
+                if (!it.isPlaying) {
+                    it.start()
+                }
+                videoEnded = false
+            } catch (e: Exception) {
+                android.util.Log.e("VRRenderer", "Error restarting video: ${e.message}")
+            }
+        }
     }
 
     fun release() {

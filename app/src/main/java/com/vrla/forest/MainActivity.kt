@@ -36,15 +36,18 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private lateinit var stepController: StepController
 
     private lateinit var overlayContainer: View
+    private lateinit var finishOverlay: View
     private lateinit var versionText: TextView
     private lateinit var stepCountText: TextView
     private lateinit var speedText: TextView
     private lateinit var distanceText: TextView
     private lateinit var timeText: TextView
     private lateinit var caloriesText: TextView
+    private lateinit var finishText: TextView
 
     // Volume button double-press detection
     private var lastVolumeUpPressTime = 0L
+    private var lastVolumeDownPressTime = 0L
     private val DOUBLE_PRESS_INTERVAL = 500L // milliseconds
 
     private var rotationVector: Sensor? = null
@@ -107,12 +110,14 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private fun initViews() {
         glSurfaceView = findViewById(R.id.glSurfaceView)
         overlayContainer = findViewById(R.id.overlayContainer)
+        finishOverlay = findViewById(R.id.finishOverlay)
         versionText = findViewById(R.id.versionText)
         stepCountText = findViewById(R.id.stepCountText)
         speedText = findViewById(R.id.speedText)
         distanceText = findViewById(R.id.distanceText)
         timeText = findViewById(R.id.timeText)
         caloriesText = findViewById(R.id.caloriesText)
+        finishText = findViewById(R.id.finishText)
 
         // Set version number
         try {
@@ -132,6 +137,13 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                 resources.displayMetrics.widthPixels,
                 resources.displayMetrics.heightPixels
             )
+        }
+
+        // Set video end callback
+        vrRenderer.onVideoEnded = {
+            runOnUiThread {
+                showFinishOverlay()
+            }
         }
 
         overlayContainer.visibility = View.VISIBLE
@@ -343,22 +355,74 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
-        if (keyCode == KeyEvent.KEYCODE_VOLUME_UP) {
-            val currentTime = System.currentTimeMillis()
-            val timeSinceLastPress = currentTime - lastVolumeUpPressTime
+        when (keyCode) {
+            KeyEvent.KEYCODE_VOLUME_UP -> {
+                val currentTime = System.currentTimeMillis()
+                val timeSinceLastPress = currentTime - lastVolumeUpPressTime
 
-            if (timeSinceLastPress < DOUBLE_PRESS_INTERVAL) {
-                // Double press detected!
-                calibrateOrientation()
-                lastVolumeUpPressTime = 0L // Reset to prevent triple-press
-                return true // Consume the event (don't change volume)
-            } else {
-                // First press
-                lastVolumeUpPressTime = currentTime
+                if (timeSinceLastPress < DOUBLE_PRESS_INTERVAL) {
+                    // Double press detected - Recalibrate
+                    calibrateOrientation()
+                    lastVolumeUpPressTime = 0L
+                    return true
+                } else {
+                    lastVolumeUpPressTime = currentTime
+                }
+            }
+            KeyEvent.KEYCODE_VOLUME_DOWN -> {
+                val currentTime = System.currentTimeMillis()
+                val timeSinceLastPress = currentTime - lastVolumeDownPressTime
+
+                if (timeSinceLastPress < DOUBLE_PRESS_INTERVAL) {
+                    // Double press detected - Restart session
+                    restartSession()
+                    lastVolumeDownPressTime = 0L
+                    return true
+                } else {
+                    lastVolumeDownPressTime = currentTime
+                }
             }
         }
 
         return super.onKeyDown(keyCode, event)
+    }
+
+    private fun restartSession() {
+        android.util.Log.d("MainActivity", "Restarting session")
+
+        // Reset stats
+        sessionSteps = 0
+        startTime = System.currentTimeMillis()
+        isVideoStarted = false
+        stepController.reset()
+
+        // Hide finish overlay
+        finishOverlay.visibility = View.GONE
+
+        // Restart video
+        vrRenderer.restartVideo()
+
+        Toast.makeText(this, "Session restarted", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun showFinishOverlay() {
+        val elapsedSeconds = (System.currentTimeMillis() - startTime) / 1000
+        val distance = stepController.getEstimatedDistance(sessionSteps)
+        val calories = stepController.getEstimatedCalories(sessionSteps)
+
+        val finishMessage = """
+            Ziel erreicht!
+
+            Zeit: ${formatTime(elapsedSeconds)}
+            Schritte: $sessionSteps
+            Distanz: ${String.format("%.1f", distance)}km
+            Kalorien: ${calories}kcal
+        """.trimIndent()
+
+        finishText.text = finishMessage
+        finishOverlay.visibility = View.VISIBLE
+
+        android.util.Log.d("MainActivity", "Video finished - showing completion overlay")
     }
 
     private fun startUIUpdateLoop() {
