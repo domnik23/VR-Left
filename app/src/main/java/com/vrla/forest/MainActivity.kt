@@ -524,6 +524,16 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
         // Update video volume if player is running
         vrRenderer.updateVolume()
+
+        // Re-register sensor listeners if VR is active
+        if (isVRActive) {
+            rotationVector?.let {
+                sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME)
+            }
+            stepCounter?.let {
+                sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
+            }
+        }
     }
 
     override fun onPause() {
