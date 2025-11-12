@@ -27,6 +27,13 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
     private var textureId = 0
     private var program = 0
 
+    // Cached shader locations (performance optimization)
+    private var positionHandle = 0
+    private var texCoordHandle = 0
+    private var mvpMatrixHandle = 0
+    private var textureHandle = 0
+    private var texOffsetHandle = 0
+
     private lateinit var sphereVertices: FloatBuffer
     private lateinit var sphereTexCoords: FloatBuffer
     private lateinit var sphereIndices: IntBuffer
@@ -58,6 +65,7 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
     private var videoEnded = false
 
     var onVideoEnded: (() -> Unit)? = null
+    var onVideoError: ((String) -> Unit)? = null
 
     override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {
         android.util.Log.d("VRRenderer", "onSurfaceCreated")
@@ -67,6 +75,13 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
         program = createProgram()
         createSphereGeometry()
         textureId = createTexture()
+
+        // Cache shader locations for performance
+        positionHandle = GLES30.glGetAttribLocation(program, "aPosition")
+        texCoordHandle = GLES30.glGetAttribLocation(program, "aTexCoord")
+        mvpMatrixHandle = GLES30.glGetUniformLocation(program, "uMVPMatrix")
+        textureHandle = GLES30.glGetUniformLocation(program, "uTexture")
+        texOffsetHandle = GLES30.glGetUniformLocation(program, "uTexOffsetU")
 
         surfaceTexture = SurfaceTexture(textureId).apply {
             setOnFrameAvailableListener(this@VRRenderer)
@@ -141,12 +156,7 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
         Matrix.multiplyMM(tempMatrix2, 0, viewMatrix, 0, modelMatrix, 0)
         Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, tempMatrix2, 0)
 
-        val positionHandle = GLES30.glGetAttribLocation(program, "aPosition")
-        val texCoordHandle = GLES30.glGetAttribLocation(program, "aTexCoord")
-        val mvpMatrixHandle = GLES30.glGetUniformLocation(program, "uMVPMatrix")
-        val textureHandle = GLES30.glGetUniformLocation(program, "uTexture")
-        val texOffsetHandle = GLES30.glGetUniformLocation(program, "uTexOffsetU")
-
+        // Use cached handles instead of querying every frame
         GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
         GLES30.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, textureId)
         GLES30.glUniform1i(textureHandle, 0)
@@ -296,11 +306,13 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
 
         if (surfaceTexture == null) {
             android.util.Log.e("VRRenderer", "SurfaceTexture is STILL NULL!")
+            onVideoError?.invoke("Interner Fehler: Surface nicht bereit")
             return
         }
 
         if (videoUri == null) {
             android.util.Log.e("VRRenderer", "Video URI is NULL!")
+            onVideoError?.invoke("Kein Video ausgewählt")
             return
         }
 
@@ -308,17 +320,23 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
         mediaPlayer?.release()
 
         try {
-            // OLD METHOD - using res/raw (commented out)
-            // mediaPlayer = MediaPlayer.create(context, R.raw.forest_jog)
-            // if (mediaPlayer == null) {
-            //     android.util.Log.e("VRRenderer", "MediaPlayer.create returned NULL - check if forest_jog.mp4 exists!")
-            //     return
-            // }
-
             // NEW METHOD - using external video URI
             mediaPlayer = MediaPlayer().apply {
                 setDataSource(context, videoUri!!)
                 setSurface(Surface(surfaceTexture))
+
+                // Set error listener
+                setOnErrorListener { _, what, extra ->
+                    android.util.Log.e("VRRenderer", "MediaPlayer error: what=$what extra=$extra")
+                    val errorMsg = when (what) {
+                        MediaPlayer.MEDIA_ERROR_SERVER_DIED -> "Media Server abgestürzt"
+                        MediaPlayer.MEDIA_ERROR_UNKNOWN -> "Unbekannter Fehler beim Abspielen"
+                        else -> "Fehler beim Video-Abspielen (Code: $what)"
+                    }
+                    onVideoError?.invoke(errorMsg)
+                    true
+                }
+
                 prepare()
                 isLooping = false  // Video plays once, then shows finish flag
                 playbackParams = playbackParams.setSpeed(playbackSpeed)
@@ -342,9 +360,16 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
             GLES30.glClearColor(0f, 0f, 0f, 1f)
 
             android.util.Log.d("VRRenderer", "MediaPlayer started successfully")
+        } catch (e: java.io.FileNotFoundException) {
+            android.util.Log.e("VRRenderer", "Video file not found: ${e.message}")
+            onVideoError?.invoke("Video nicht gefunden. Bitte wählen Sie ein anderes Video.")
+        } catch (e: java.io.IOException) {
+            android.util.Log.e("VRRenderer", "IO error loading video: ${e.message}")
+            onVideoError?.invoke("Video konnte nicht geladen werden. Datei beschädigt?")
         } catch (e: Exception) {
             android.util.Log.e("VRRenderer", "Error starting video: ${e.message}")
             e.printStackTrace()
+            onVideoError?.invoke("Fehler beim Video-Start: ${e.message}")
         }
     }
 

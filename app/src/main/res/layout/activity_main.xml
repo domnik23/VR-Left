@@ -106,22 +106,45 @@
             android:layout_marginBottom="16dp" />
 
         <TextView
-            android:id="@+id/finishText"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Ziel erreicht!"
             android:textColor="#FFFFFF"
             android:textSize="24sp"
             android:textStyle="bold"
-            android:layout_marginBottom="16dp" />
+            android:layout_marginBottom="24dp" />
 
         <TextView
+            android:id="@+id/finishText"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Doppelklick Volume Down für Neustart"
-            android:textColor="#AAAAAA"
-            android:textSize="14sp"
-            android:gravity="center" />
+            android:text="Zeit: 00:00\nSchritte: 0\nDistanz: 0.0km\nKalorien: 0kcal"
+            android:textColor="#FFFFFF"
+            android:textSize="18sp"
+            android:gravity="start"
+            android:layout_marginBottom="24dp" />
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/finishRestartButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Neustarten"
+                android:layout_marginEnd="16dp"
+                android:minWidth="120dp" />
+
+            <Button
+                android:id="@+id/finishExitButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Beenden"
+                android:minWidth="120dp" />
+
+        </LinearLayout>
 
     </LinearLayout>
 

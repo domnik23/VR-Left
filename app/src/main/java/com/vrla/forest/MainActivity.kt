@@ -45,6 +45,8 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private lateinit var caloriesText: TextView
     private lateinit var finishText: TextView
     private lateinit var settingsButton: TextView
+    private lateinit var finishRestartButton: android.widget.Button
+    private lateinit var finishExitButton: android.widget.Button
 
     // Volume button double-press detection
     private var lastVolumeUpPressTime = 0L
@@ -154,11 +156,22 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         caloriesText = findViewById(R.id.caloriesText)
         finishText = findViewById(R.id.finishText)
         settingsButton = findViewById(R.id.settingsButton)
+        finishRestartButton = findViewById(R.id.finishRestartButton)
+        finishExitButton = findViewById(R.id.finishExitButton)
 
         // Settings button click
         settingsButton.setOnClickListener {
             val intent = Intent(this, SettingsActivity::class.java)
             startActivity(intent)
+        }
+
+        // Finish overlay buttons
+        finishRestartButton.setOnClickListener {
+            restartSession()
+        }
+
+        finishExitButton.setOnClickListener {
+            finish()
         }
 
         // Set version number
@@ -185,6 +198,13 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         vrRenderer.onVideoEnded = {
             runOnUiThread {
                 showFinishOverlay()
+            }
+        }
+
+        // Set video error callback
+        vrRenderer.onVideoError = { errorMessage ->
+            runOnUiThread {
+                showVideoErrorDialog(errorMessage)
             }
         }
 
@@ -338,6 +358,12 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
         android.util.Log.d("MainActivity", "Starting VR Experience")
 
+        // Check if rotation sensor is available (CRITICAL for VR)
+        if (rotationVector == null) {
+            showGyroscopeWarning()
+            return
+        }
+
         // Set video URI in renderer before starting
         selectedVideoUri?.let { uri ->
             vrRenderer.setVideoUri(uri)
@@ -347,9 +373,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         startTime = System.currentTimeMillis()
         sessionSteps = 0
 
-        rotationVector?.let {
-            sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME)
-        }
+        sensorManager.registerListener(this, rotationVector, SensorManager.SENSOR_DELAY_GAME)
 
         // Check if step counter is available
         if (stepCounter == null) {
@@ -364,6 +388,19 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
         startUIUpdateLoop()
         calibrateOrientation()
+    }
+
+    private fun showGyroscopeWarning() {
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Gyroscope/Rotation Sensor fehlt")
+            .setMessage("Ihr Gerät hat keinen Rotation Vector Sensor.\n\n" +
+                    "Dieser Sensor ist ZWINGEND für VR Head Tracking erforderlich.\n\n" +
+                    "Die App kann ohne diesen Sensor nicht funktionieren.")
+            .setPositiveButton("Beenden") { _, _ ->
+                finish()
+            }
+            .setCancelable(false)
+            .show()
     }
 
     private fun showStepCounterWarning() {
@@ -382,6 +419,20 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                 .setCancelable(false)
                 .show()
         }
+    }
+
+    private fun showVideoErrorDialog(errorMessage: String) {
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Video-Fehler")
+            .setMessage("$errorMessage\n\nMöchten Sie ein anderes Video auswählen?")
+            .setPositiveButton("Video auswählen") { _, _ ->
+                openVideoPicker()
+            }
+            .setNegativeButton("Beenden") { _, _ ->
+                finish()
+            }
+            .setCancelable(false)
+            .show()
     }
 
     private fun calibrateOrientation() {
@@ -446,14 +497,10 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         val distance = stepController.getEstimatedDistance(sessionSteps)
         val calories = stepController.getEstimatedCalories(sessionSteps)
 
-        val finishMessage = """
-            Ziel erreicht!
-
-            Zeit: ${formatTime(elapsedSeconds)}
-            Schritte: $sessionSteps
-            Distanz: ${String.format("%.1f", distance)}km
-            Kalorien: ${calories}kcal
-        """.trimIndent()
+        val finishMessage = """Zeit: ${formatTime(elapsedSeconds)}
+Schritte: $sessionSteps
+Distanz: ${String.format("%.1f", distance)}km
+Kalorien: ${calories}kcal"""
 
         finishText.text = finishMessage
         finishOverlay.visibility = View.VISIBLE

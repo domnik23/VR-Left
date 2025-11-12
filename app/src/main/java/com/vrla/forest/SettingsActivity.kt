@@ -19,6 +19,7 @@ import androidx.appcompat.widget.SwitchCompat
 class SettingsActivity : AppCompatActivity() {
 
     private lateinit var selectVideoButton: Button
+    private lateinit var currentVideoText: TextView
     private lateinit var videoRotationSpinner: Spinner
     private lateinit var volumeSeekBar: SeekBar
     private lateinit var volumeValueText: TextView
@@ -49,6 +50,7 @@ class SettingsActivity : AppCompatActivity() {
                     Intent.FLAG_GRANT_READ_URI_PERMISSION
                 )
                 saveVideoUri(uri.toString())
+                updateCurrentVideoDisplay()
                 Toast.makeText(this, "Video ausgewählt", Toast.LENGTH_SHORT).show()
             }
         }
@@ -65,6 +67,7 @@ class SettingsActivity : AppCompatActivity() {
 
     private fun initViews() {
         selectVideoButton = findViewById(R.id.selectVideoButton)
+        currentVideoText = findViewById(R.id.currentVideoText)
         videoRotationSpinner = findViewById(R.id.videoRotationSpinner)
         volumeSeekBar = findViewById(R.id.volumeSeekBar)
         volumeValueText = findViewById(R.id.volumeValueText)
@@ -97,6 +100,40 @@ class SettingsActivity : AppCompatActivity() {
             appVersionText.text = "Version ${packageInfo.versionName}"
         } catch (e: Exception) {
             appVersionText.text = "Version ?.?"
+        }
+
+        // Show current video
+        updateCurrentVideoDisplay()
+    }
+
+    private fun updateCurrentVideoDisplay() {
+        val prefs = getSharedPreferences("VRLAPrefs", Context.MODE_PRIVATE)
+        val uriString = prefs.getString("video_uri", null)
+
+        if (uriString != null) {
+            val uri = Uri.parse(uriString)
+            val fileName = getFileNameFromUri(uri)
+            currentVideoText.text = "Aktuell: $fileName"
+        } else {
+            currentVideoText.text = "Aktuell: Kein Video ausgewählt"
+        }
+    }
+
+    private fun getFileNameFromUri(uri: Uri): String {
+        return try {
+            val cursor = contentResolver.query(uri, null, null, null, null)
+            cursor?.use {
+                if (it.moveToFirst()) {
+                    val nameIndex = it.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                    if (nameIndex >= 0) {
+                        return it.getString(nameIndex)
+                    }
+                }
+            }
+            // Fallback: use last path segment
+            uri.lastPathSegment ?: "Unbekannt"
+        } catch (e: Exception) {
+            uri.lastPathSegment ?: "Unbekannt"
         }
     }
 
