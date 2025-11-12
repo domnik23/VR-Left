@@ -113,6 +113,11 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
 
     private fun setupViewMatrices() {
         Matrix.setIdentityM(modelMatrix, 0)
+
+        // Apply video rotation offset first (to correct orientation issues)
+        Matrix.rotateM(modelMatrix, 0, AppConfig.videoRotation, 0f, 0f, 1f)
+
+        // Apply head tracking
         Matrix.rotateM(modelMatrix, 0, -pitch, 1f, 0f, 0f)
         Matrix.rotateM(modelMatrix, 0, -yaw, 0f, 1f, 0f)
         Matrix.rotateM(modelMatrix, 0, -roll, 0f, 0f, 1f)

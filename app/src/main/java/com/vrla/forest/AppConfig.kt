@@ -6,6 +6,7 @@ object AppConfig {
     // Video Settings
     var stereoMode = false  // false = Mono (both eyes see same), true = Stereo (3D depth)
     var videoVolume = 0.5f  // 0.0 to 1.0
+    var videoRotation = -90f  // Rotation offset in degrees (fix for 90° CW issue)
 
     // Speed Settings
     var minSpeed = 0.4f          // No movement (0.0 - 1.0)
@@ -29,6 +30,7 @@ object AppConfig {
         // Video
         videoVolume = prefs.getInt("video_volume", 50) / 100f
         stereoMode = prefs.getBoolean("stereo_mode", false)
+        videoRotation = prefs.getFloat("video_rotation", -90f)
 
         // VR
         ipd = prefs.getFloat("ipd", 0.064f)
