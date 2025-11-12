@@ -522,8 +522,18 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         // Reload settings when returning from SettingsActivity
         AppConfig.loadFromPreferences(this)
 
-        // Update video volume if player is running
-        vrRenderer.updateVolume()
+        // Check if video URI changed
+        val savedUri = getSavedVideoUri()
+        if (savedUri != null && savedUri != selectedVideoUri && isVRActive) {
+            // New video selected - reload and reset
+            selectedVideoUri = savedUri
+            android.util.Log.d("MainActivity", "New video detected - reloading: $savedUri")
+            vrRenderer.setVideoUri(savedUri)
+            restartSession()
+        } else {
+            // Just update volume if player is running
+            vrRenderer.updateVolume()
+        }
 
         // Re-register sensor listeners if VR is active
         if (isVRActive) {
