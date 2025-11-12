@@ -350,8 +350,12 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         rotationVector?.let {
             sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME)
         }
-        stepCounter?.let {
-            sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
+
+        // Check if step counter is available
+        if (stepCounter == null) {
+            showStepCounterWarning()
+        } else {
+            sensorManager.registerListener(this, stepCounter, SensorManager.SENSOR_DELAY_NORMAL)
             totalSteps = 0
         }
 
@@ -360,6 +364,24 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
         startUIUpdateLoop()
         calibrateOrientation()
+    }
+
+    private fun showStepCounterWarning() {
+        runOnUiThread {
+            androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("Schrittzähler nicht verfügbar")
+                .setMessage("Der Schrittzähler ist auf diesem Gerät nicht verfügbar.\n\n" +
+                        "Die Videogeschwindigkeit wird NICHT automatisch angepasst.\n\n" +
+                        "Empfehlung: Passen Sie die Geschwindigkeiten im Einstellungsmenü (⋮) manuell an.")
+                .setPositiveButton("OK") { dialog, _ ->
+                    dialog.dismiss()
+                }
+                .setNegativeButton("Beenden") { _, _ ->
+                    finish()
+                }
+                .setCancelable(false)
+                .show()
+        }
     }
 
     private fun calibrateOrientation() {

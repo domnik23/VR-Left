@@ -6,15 +6,19 @@ class StepController {
 
     private val stepTimestamps = mutableListOf<Long>()
     private var currentSpeed = AppConfig.minSpeed
-    
+    private val lock = Any()
+
     fun addStep() {
-        val currentTime = System.currentTimeMillis()
-        stepTimestamps.add(currentTime)
-        stepTimestamps.removeAll { it < currentTime - AppConfig.stepWindowMs }
-        updateSpeed()
+        synchronized(lock) {
+            val currentTime = System.currentTimeMillis()
+            stepTimestamps.add(currentTime)
+            stepTimestamps.removeAll { it < currentTime - AppConfig.stepWindowMs }
+            updateSpeed()
+        }
     }
 
     private fun updateSpeed() {
+        // Must be called within synchronized block
         if (stepTimestamps.isEmpty()) {
             currentSpeed = AppConfig.minSpeed
             return
@@ -36,15 +40,17 @@ class StepController {
     }
 
     fun getCurrentSpeed(): Float {
-        if (stepTimestamps.isEmpty()) return AppConfig.minSpeed
+        synchronized(lock) {
+            if (stepTimestamps.isEmpty()) return AppConfig.minSpeed
 
-        val timeSinceLastStep = System.currentTimeMillis() - stepTimestamps.last()
-        if (timeSinceLastStep > 3000) {
-            val decayFactor = max(0f, 1f - (timeSinceLastStep - 3000) / 5000f)
-            return AppConfig.minSpeed + (currentSpeed - AppConfig.minSpeed) * decayFactor
+            val timeSinceLastStep = System.currentTimeMillis() - stepTimestamps.last()
+            if (timeSinceLastStep > 3000) {
+                val decayFactor = max(0f, 1f - (timeSinceLastStep - 3000) / 5000f)
+                return AppConfig.minSpeed + (currentSpeed - AppConfig.minSpeed) * decayFactor
+            }
+
+            return currentSpeed
         }
-
-        return currentSpeed
     }
 
     fun getEstimatedDistance(totalSteps: Int): Float {
@@ -57,7 +63,9 @@ class StepController {
     }
 
     fun reset() {
-        stepTimestamps.clear()
-        currentSpeed = AppConfig.minSpeed
+        synchronized(lock) {
+            stepTimestamps.clear()
+            currentSpeed = AppConfig.minSpeed
+        }
     }
 }
