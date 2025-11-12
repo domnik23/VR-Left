@@ -37,6 +37,7 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
     private val modelMatrix = FloatArray(16)
     private val mvpMatrix = FloatArray(16)
     private val tempMatrix = FloatArray(16)
+    private val tempMatrix2 = FloatArray(16)
 
     private var yaw = 0f
     private var pitch = 0f
@@ -112,29 +113,35 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
     }
 
     private fun setupViewMatrices() {
+        // Model matrix stays at origin (sphere doesn't move)
         Matrix.setIdentityM(modelMatrix, 0)
 
-        // Apply video rotation offset first (to correct orientation issues)
-        Matrix.rotateM(modelMatrix, 0, AppConfig.videoRotation, 0f, 0f, 1f)
+        // Create base view matrix with head tracking rotations
+        // For 360° video, we rotate the camera (view), not the world (model)
+        // Rotation order: Yaw (Y) -> Pitch (X) -> Roll (Z)
+        Matrix.setIdentityM(tempMatrix, 0)
+        Matrix.rotateM(tempMatrix, 0, yaw, 0f, 1f, 0f)      // Horizontal rotation
+        Matrix.rotateM(tempMatrix, 0, pitch, 1f, 0f, 0f)    // Vertical rotation
+        Matrix.rotateM(tempMatrix, 0, roll, 0f, 0f, 1f)     // Head tilt
 
-        // Apply head tracking
-        Matrix.rotateM(modelMatrix, 0, -pitch, 1f, 0f, 0f)
-        Matrix.rotateM(modelMatrix, 0, -yaw, 0f, 1f, 0f)
-        Matrix.rotateM(modelMatrix, 0, -roll, 0f, 0f, 1f)
+        // Apply video rotation correction
+        Matrix.rotateM(tempMatrix, 0, -AppConfig.videoRotation, 0f, 0f, 1f)
 
+        // Left eye: IPD offset to the left
         Matrix.setIdentityM(viewMatrixLeft, 0)
-        Matrix.translateM(viewMatrixLeft, 0, AppConfig.ipd / 2f, 0f, 0f)
-        Matrix.multiplyMM(tempMatrix, 0, viewMatrixLeft, 0, modelMatrix, 0)
-        System.arraycopy(tempMatrix, 0, viewMatrixLeft, 0, 16)
+        Matrix.translateM(viewMatrixLeft, 0, -AppConfig.ipd / 2f, 0f, 0f)
+        Matrix.multiplyMM(viewMatrixLeft, 0, tempMatrix, 0, viewMatrixLeft, 0)
 
+        // Right eye: IPD offset to the right
         Matrix.setIdentityM(viewMatrixRight, 0)
-        Matrix.translateM(viewMatrixRight, 0, -AppConfig.ipd / 2f, 0f, 0f)
-        Matrix.multiplyMM(tempMatrix, 0, viewMatrixRight, 0, modelMatrix, 0)
-        System.arraycopy(tempMatrix, 0, viewMatrixRight, 0, 16)
+        Matrix.translateM(viewMatrixRight, 0, AppConfig.ipd / 2f, 0f, 0f)
+        Matrix.multiplyMM(viewMatrixRight, 0, tempMatrix, 0, viewMatrixRight, 0)
     }
 
     private fun drawSphere(viewMatrix: FloatArray, texOffsetU: Float) {
-        Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, viewMatrix, 0)
+        // MVP = Projection * View * Model
+        Matrix.multiplyMM(tempMatrix2, 0, viewMatrix, 0, modelMatrix, 0)
+        Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, tempMatrix2, 0)
 
         val positionHandle = GLES30.glGetAttribLocation(program, "aPosition")
         val texCoordHandle = GLES30.glGetAttribLocation(program, "aTexCoord")
