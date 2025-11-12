@@ -88,7 +88,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
     companion object {
         private const val PERMISSION_REQUEST_CODE = 100
-        private const val STORAGE_PERMISSION_REQUEST_CODE = 101
         private const val DEFAULT_VIDEO_NAME = "forest_jog.mp4"
         private const val PREFS_NAME = "VRLAPrefs"
         private const val KEY_VIDEO_URI = "video_uri"
@@ -105,10 +104,42 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
         initViews()
         initSensors()
-        checkPermissions()
 
-        // Check for video before starting VR
-        findAndLoadVideo()
+        // Request all permissions first, then load video
+        checkAllPermissions()
+    }
+
+    private fun checkAllPermissions() {
+        val permissionsToRequest = mutableListOf<String>()
+
+        // Check Activity Recognition
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACTIVITY_RECOGNITION)
+            != PackageManager.PERMISSION_GRANTED) {
+            permissionsToRequest.add(Manifest.permission.ACTIVITY_RECOGNITION)
+        }
+
+        // Check Storage permissions
+        val storagePermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            Manifest.permission.READ_MEDIA_VIDEO
+        } else {
+            Manifest.permission.READ_EXTERNAL_STORAGE
+        }
+
+        if (ContextCompat.checkSelfPermission(this, storagePermission)
+            != PackageManager.PERMISSION_GRANTED) {
+            permissionsToRequest.add(storagePermission)
+        }
+
+        if (permissionsToRequest.isNotEmpty()) {
+            ActivityCompat.requestPermissions(
+                this,
+                permissionsToRequest.toTypedArray(),
+                PERMISSION_REQUEST_CODE
+            )
+        } else {
+            // All permissions granted, proceed
+            findAndLoadVideo()
+        }
     }
 
     private fun initViews() {
@@ -167,45 +198,38 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         stepController = StepController()
     }
 
-    private fun checkPermissions() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACTIVITY_RECOGNITION)
-            != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(
-                this,
-                arrayOf(Manifest.permission.ACTIVITY_RECOGNITION),
-                PERMISSION_REQUEST_CODE
-            )
-        }
-    }
-
     override fun onRequestPermissionsResult(
         requestCode: Int,
         permissions: Array<out String>,
         grantResults: IntArray
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        when (requestCode) {
-            PERMISSION_REQUEST_CODE -> {
-                if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    // Permission granted - restart sensors
-                    if (isVRActive) {
-                        stepCounter?.let {
-                            sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
-                        }
+
+        if (requestCode == PERMISSION_REQUEST_CODE) {
+            var activityRecognitionGranted = false
+            var storageGranted = false
+
+            // Check which permissions were granted
+            for (i in permissions.indices) {
+                when (permissions[i]) {
+                    Manifest.permission.ACTIVITY_RECOGNITION -> {
+                        activityRecognitionGranted = grantResults[i] == PackageManager.PERMISSION_GRANTED
                     }
-                } else {
-                    stepCountText.text = "Permission needed for step tracking"
+                    Manifest.permission.READ_EXTERNAL_STORAGE,
+                    Manifest.permission.READ_MEDIA_VIDEO -> {
+                        storageGranted = grantResults[i] == PackageManager.PERMISSION_GRANTED
+                    }
                 }
             }
-            STORAGE_PERMISSION_REQUEST_CODE -> {
-                if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    // Storage permission granted - continue with video search
-                    continueVideoSearch()
-                } else {
-                    // No permission - open file picker directly
-                    openVideoPicker()
-                }
+
+            // Handle Activity Recognition
+            if (!activityRecognitionGranted) {
+                stepCountText.text = "Schrittzähler-Berechtigung fehlt"
+                Toast.makeText(this, "Schrittzählung benötigt 'Körperliche Aktivität' Berechtigung", Toast.LENGTH_LONG).show()
             }
+
+            // Proceed with video loading regardless
+            findAndLoadVideo()
         }
     }
 
@@ -232,10 +256,8 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             }
         }
 
-        // Check storage permissions and search for default video
-        if (checkStoragePermissions()) {
-            continueVideoSearch()
-        }
+        // Search for default video (permissions already granted in onCreate)
+        continueVideoSearch()
     }
 
     private fun continueVideoSearch() {
@@ -248,25 +270,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         } else {
             // Not found - open file picker
             openVideoPicker()
-        }
-    }
-
-    private fun checkStoragePermissions(): Boolean {
-        val permission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            Manifest.permission.READ_MEDIA_VIDEO
-        } else {
-            Manifest.permission.READ_EXTERNAL_STORAGE
-        }
-
-        return if (ContextCompat.checkSelfPermission(this, permission) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(
-                this,
-                arrayOf(permission),
-                STORAGE_PERMISSION_REQUEST_CODE
-            )
-            false
-        } else {
-            true
         }
     }
 
