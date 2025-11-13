@@ -3,64 +3,69 @@
 import kotlin.math.max
 
 class StepController {
-    
-    private val minSpeed = 0.3f
-    private val maxSpeed = 2.5f
-    private val baseStepsPerMinute = 60
-    private val windowSizeMs = 10000L
-    
+
     private val stepTimestamps = mutableListOf<Long>()
-    private var currentSpeed = minSpeed
-    
-    private val averageStrideLength = 0.75f
-    private val caloriesPerKm = 60
-    
+    private var currentSpeed = AppConfig.minSpeed
+    private val lock = Any()
+
     fun addStep() {
-        val currentTime = System.currentTimeMillis()
-        stepTimestamps.add(currentTime)
-        stepTimestamps.removeAll { it < currentTime - windowSizeMs }
-        updateSpeed()
+        synchronized(lock) {
+            val currentTime = System.currentTimeMillis()
+            stepTimestamps.add(currentTime)
+            stepTimestamps.removeAll { it < currentTime - AppConfig.stepWindowMs }
+            updateSpeed()
+        }
     }
-    
+
     private fun updateSpeed() {
+        // Must be called within synchronized block
         if (stepTimestamps.isEmpty()) {
-            currentSpeed = minSpeed
+            currentSpeed = AppConfig.minSpeed
             return
         }
-        
-        val windowSizeMinutes = windowSizeMs / 60000f
+
+        val windowSizeMinutes = AppConfig.stepWindowMs / 60000f
         val stepsInWindow = stepTimestamps.size
         val stepsPerMinute = stepsInWindow / windowSizeMinutes
-        
+
         currentSpeed = when {
-            stepsPerMinute < 10 -> minSpeed
-            stepsPerMinute >= 120 -> maxSpeed
+            stepsPerMinute < 10 -> AppConfig.minSpeed  // No movement (default: 0.4x)
+            stepsPerMinute >= 120 -> AppConfig.maxSpeed  // Fast jogging (default: 1.5x)
             else -> {
-                val ratio = stepsPerMinute / baseStepsPerMinute
-                val speed = minSpeed + (1.0f - minSpeed) * (ratio - 0.167f) / 0.833f
-                speed.coerceIn(minSpeed, maxSpeed)
+                // Linear interpolation between minSpeedMoving (default: 0.7x at 10 steps/min) and maxSpeed (at 120 steps/min)
+                val progress = (stepsPerMinute - 10f) / 110f
+                AppConfig.minSpeedMoving + progress * (AppConfig.maxSpeed - AppConfig.minSpeedMoving)
             }
         }
     }
-    
+
     fun getCurrentSpeed(): Float {
-        if (stepTimestamps.isEmpty()) return minSpeed
-        
-        val timeSinceLastStep = System.currentTimeMillis() - stepTimestamps.last()
-        if (timeSinceLastStep > 3000) {
-            val decayFactor = max(0f, 1f - (timeSinceLastStep - 3000) / 5000f)
-            return minSpeed + (currentSpeed - minSpeed) * decayFactor
+        synchronized(lock) {
+            if (stepTimestamps.isEmpty()) return AppConfig.minSpeed
+
+            val timeSinceLastStep = System.currentTimeMillis() - stepTimestamps.last()
+            if (timeSinceLastStep > 3000) {
+                val decayFactor = max(0f, 1f - (timeSinceLastStep - 3000) / 5000f)
+                return AppConfig.minSpeed + (currentSpeed - AppConfig.minSpeed) * decayFactor
+            }
+
+            return currentSpeed
         }
-        
-        return currentSpeed
     }
-    
+
     fun getEstimatedDistance(totalSteps: Int): Float {
-        return (totalSteps * averageStrideLength) / 1000f
+        return (totalSteps * AppConfig.averageStrideLength) / 1000f
     }
-    
+
     fun getEstimatedCalories(totalSteps: Int): Int {
         val distanceKm = getEstimatedDistance(totalSteps)
-        return (distanceKm * caloriesPerKm).toInt()
+        return (distanceKm * AppConfig.caloriesPerKm).toInt()
+    }
+
+    fun reset() {
+        synchronized(lock) {
+            stepTimestamps.clear()
+            currentSpeed = AppConfig.minSpeed
+        }
     }
 }

@@ -1,8 +1,16 @@
 ﻿package com.vrla.forest
 
 import android.Manifest
+import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.database.Cursor
 import android.hardware.Sensor
+import android.net.Uri
+import android.os.Build
+import android.os.Environment
+import android.provider.MediaStore
+import androidx.activity.result.contract.ActivityResultContracts
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
@@ -28,21 +36,28 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private lateinit var stepController: StepController
 
     private lateinit var overlayContainer: View
+    private lateinit var finishOverlay: View
     private lateinit var versionText: TextView
     private lateinit var stepCountText: TextView
     private lateinit var speedText: TextView
     private lateinit var distanceText: TextView
     private lateinit var timeText: TextView
     private lateinit var caloriesText: TextView
+    private lateinit var finishText: TextView
+    private lateinit var settingsButton: TextView
+    private lateinit var finishRestartButton: android.widget.Button
+    private lateinit var finishExitButton: android.widget.Button
 
     // Volume button double-press detection
     private var lastVolumeUpPressTime = 0L
+    private var lastVolumeDownPressTime = 0L
     private val DOUBLE_PRESS_INTERVAL = 500L // milliseconds
 
     private var rotationVector: Sensor? = null
     private var stepCounter: Sensor? = null
 
     private var isVRActive = false
+    private var isVideoStarted = false
     private var startTime = 0L
     private var totalSteps = 0
     private var sessionSteps = 0
@@ -51,8 +66,33 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private val orientationAngles = FloatArray(3)
     private var calibrationYaw = 0f
 
+    private var selectedVideoUri: Uri? = null
+
+    private val videoPickerLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == RESULT_OK) {
+            result.data?.data?.let { uri ->
+                contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+                selectedVideoUri = uri
+                saveVideoUri(uri.toString())
+                initializeVRWithVideo()
+            }
+        } else {
+            // User cancelled - exit app
+            Toast.makeText(this, "Video is required to run the app", Toast.LENGTH_LONG).show()
+            finish()
+        }
+    }
+
     companion object {
         private const val PERMISSION_REQUEST_CODE = 100
+        private const val DEFAULT_VIDEO_NAME = "forest_jog.mp4"
+        private const val PREFS_NAME = "VRLAPrefs"
+        private const val KEY_VIDEO_URI = "video_uri"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -61,25 +101,78 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         setContentView(R.layout.activity_main)
 
+        // Load settings from preferences
+        AppConfig.loadFromPreferences(this)
+
         initViews()
         initSensors()
-        checkPermissions()
 
-        // Start VR nach kurzer Verzögerung (damit OpenGL Zeit hat)
-        glSurfaceView.postDelayed({
-            startVRExperience()
-        }, 500)
+        // Request all permissions first, then load video
+        checkAllPermissions()
+    }
+
+    private fun checkAllPermissions() {
+        val permissionsToRequest = mutableListOf<String>()
+
+        // Check Activity Recognition
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACTIVITY_RECOGNITION)
+            != PackageManager.PERMISSION_GRANTED) {
+            permissionsToRequest.add(Manifest.permission.ACTIVITY_RECOGNITION)
+        }
+
+        // Check Storage permissions
+        val storagePermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            Manifest.permission.READ_MEDIA_VIDEO
+        } else {
+            Manifest.permission.READ_EXTERNAL_STORAGE
+        }
+
+        if (ContextCompat.checkSelfPermission(this, storagePermission)
+            != PackageManager.PERMISSION_GRANTED) {
+            permissionsToRequest.add(storagePermission)
+        }
+
+        if (permissionsToRequest.isNotEmpty()) {
+            ActivityCompat.requestPermissions(
+                this,
+                permissionsToRequest.toTypedArray(),
+                PERMISSION_REQUEST_CODE
+            )
+        } else {
+            // All permissions granted, proceed
+            findAndLoadVideo()
+        }
     }
 
     private fun initViews() {
         glSurfaceView = findViewById(R.id.glSurfaceView)
         overlayContainer = findViewById(R.id.overlayContainer)
+        finishOverlay = findViewById(R.id.finishOverlay)
         versionText = findViewById(R.id.versionText)
         stepCountText = findViewById(R.id.stepCountText)
         speedText = findViewById(R.id.speedText)
         distanceText = findViewById(R.id.distanceText)
         timeText = findViewById(R.id.timeText)
         caloriesText = findViewById(R.id.caloriesText)
+        finishText = findViewById(R.id.finishText)
+        settingsButton = findViewById(R.id.settingsButton)
+        finishRestartButton = findViewById(R.id.finishRestartButton)
+        finishExitButton = findViewById(R.id.finishExitButton)
+
+        // Settings button click
+        settingsButton.setOnClickListener {
+            val intent = Intent(this, SettingsActivity::class.java)
+            startActivity(intent)
+        }
+
+        // Finish overlay buttons
+        finishRestartButton.setOnClickListener {
+            restartSession()
+        }
+
+        finishExitButton.setOnClickListener {
+            finish()
+        }
 
         // Set version number
         try {
@@ -101,6 +194,20 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             )
         }
 
+        // Set video end callback
+        vrRenderer.onVideoEnded = {
+            runOnUiThread {
+                showFinishOverlay()
+            }
+        }
+
+        // Set video error callback
+        vrRenderer.onVideoError = { errorMessage ->
+            runOnUiThread {
+                showVideoErrorDialog(errorMessage)
+            }
+        }
+
         overlayContainer.visibility = View.VISIBLE
     }
 
@@ -111,35 +218,139 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         stepController = StepController()
     }
 
-    private fun checkPermissions() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACTIVITY_RECOGNITION)
-            != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(
-                this,
-                arrayOf(Manifest.permission.ACTIVITY_RECOGNITION),
-                PERMISSION_REQUEST_CODE
-            )
-        }
-    }
-
     override fun onRequestPermissionsResult(
         requestCode: Int,
         permissions: Array<out String>,
         grantResults: IntArray
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+
         if (requestCode == PERMISSION_REQUEST_CODE) {
-            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                // Permission granted - restart sensors
-                if (isVRActive) {
-                    stepCounter?.let {
-                        sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
+            var activityRecognitionGranted = false
+            var storageGranted = false
+
+            // Check which permissions were granted
+            for (i in permissions.indices) {
+                when (permissions[i]) {
+                    Manifest.permission.ACTIVITY_RECOGNITION -> {
+                        activityRecognitionGranted = grantResults[i] == PackageManager.PERMISSION_GRANTED
+                    }
+                    Manifest.permission.READ_EXTERNAL_STORAGE,
+                    Manifest.permission.READ_MEDIA_VIDEO -> {
+                        storageGranted = grantResults[i] == PackageManager.PERMISSION_GRANTED
                     }
                 }
-            } else {
-                stepCountText.text = "Permission needed for step tracking"
+            }
+
+            // Handle Activity Recognition
+            if (!activityRecognitionGranted) {
+                stepCountText.text = "Schrittzähler-Berechtigung fehlt"
+                Toast.makeText(this, "Schrittzählung benötigt 'Körperliche Aktivität' Berechtigung", Toast.LENGTH_LONG).show()
+            }
+
+            // Proceed with video loading regardless
+            findAndLoadVideo()
+        }
+    }
+
+    private fun findAndLoadVideo() {
+        // OLD METHOD - using res/raw (commented out)
+        // Check if default video exists in res/raw
+        // val resourceId = resources.getIdentifier("forest_jog", "raw", packageName)
+        // if (resourceId != 0) {
+        //     selectedVideoUri = Uri.parse("android.resource://$packageName/$resourceId")
+        //     initializeVRWithVideo()
+        //     return
+        // }
+
+        // Check saved video URI
+        val savedUri = getSavedVideoUri()
+        if (savedUri != null) {
+            try {
+                contentResolver.openInputStream(savedUri)?.close()
+                selectedVideoUri = savedUri
+                initializeVRWithVideo()
+                return
+            } catch (e: Exception) {
+                android.util.Log.w("MainActivity", "Saved video no longer accessible: ${e.message}")
             }
         }
+
+        // Search for default video (permissions already granted in onCreate)
+        continueVideoSearch()
+    }
+
+    private fun continueVideoSearch() {
+        // Search in Movies/Videos for forest_jog.mp4
+        val foundUri = searchForDefaultVideo()
+        if (foundUri != null) {
+            selectedVideoUri = foundUri
+            saveVideoUri(foundUri.toString())
+            initializeVRWithVideo()
+        } else {
+            // Not found - open file picker
+            openVideoPicker()
+        }
+    }
+
+    private fun searchForDefaultVideo(): Uri? {
+        try {
+            val projection = arrayOf(
+                MediaStore.Video.Media._ID,
+                MediaStore.Video.Media.DISPLAY_NAME
+            )
+            val selection = "${MediaStore.Video.Media.DISPLAY_NAME} = ?"
+            val selectionArgs = arrayOf(DEFAULT_VIDEO_NAME)
+
+            contentResolver.query(
+                MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
+                projection,
+                selection,
+                selectionArgs,
+                null
+            )?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Video.Media._ID)
+                    val id = cursor.getLong(idColumn)
+                    android.util.Log.d("MainActivity", "Found default video: $DEFAULT_VIDEO_NAME")
+                    return Uri.withAppendedPath(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, id.toString())
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("MainActivity", "Error searching for video: ${e.message}")
+        }
+        return null
+    }
+
+    private fun openVideoPicker() {
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "video/mp4"
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
+        }
+        videoPickerLauncher.launch(intent)
+    }
+
+    private fun saveVideoUri(uriString: String) {
+        getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString(KEY_VIDEO_URI, uriString)
+            .apply()
+    }
+
+    private fun getSavedVideoUri(): Uri? {
+        val uriString = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(KEY_VIDEO_URI, null)
+        return uriString?.let { Uri.parse(it) }
+    }
+
+    private fun initializeVRWithVideo() {
+        android.util.Log.d("MainActivity", "Initializing VR with video: $selectedVideoUri")
+        // Start VR after short delay (so OpenGL has time)
+        glSurfaceView.postDelayed({
+            startVRExperience()
+        }, 500)
     }
 
     private fun startVRExperience() {
@@ -147,23 +358,81 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
         android.util.Log.d("MainActivity", "Starting VR Experience")
 
+        // Check if rotation sensor is available (CRITICAL for VR)
+        if (rotationVector == null) {
+            showGyroscopeWarning()
+            return
+        }
+
+        // Set video URI in renderer before starting
+        selectedVideoUri?.let { uri ->
+            vrRenderer.setVideoUri(uri)
+        }
+
         isVRActive = true
         startTime = System.currentTimeMillis()
         sessionSteps = 0
 
-        rotationVector?.let {
-            sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME)
-        }
-        stepCounter?.let {
-            sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
+        sensorManager.registerListener(this, rotationVector, SensorManager.SENSOR_DELAY_GAME)
+
+        // Check if step counter is available
+        if (stepCounter == null) {
+            showStepCounterWarning()
+        } else {
+            sensorManager.registerListener(this, stepCounter, SensorManager.SENSOR_DELAY_NORMAL)
             totalSteps = 0
         }
 
-        // Video starten - VRRenderer wartet automatisch bis Surface bereit ist
-        vrRenderer.startVideo()
+        // Video startet erst beim ersten Schritt
+        android.util.Log.d("MainActivity", "Waiting for first step to start video...")
 
         startUIUpdateLoop()
         calibrateOrientation()
+    }
+
+    private fun showGyroscopeWarning() {
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Gyroscope/Rotation Sensor fehlt")
+            .setMessage("Ihr Gerät hat keinen Rotation Vector Sensor.\n\n" +
+                    "Dieser Sensor ist ZWINGEND für VR Head Tracking erforderlich.\n\n" +
+                    "Die App kann ohne diesen Sensor nicht funktionieren.")
+            .setPositiveButton("Beenden") { _, _ ->
+                finish()
+            }
+            .setCancelable(false)
+            .show()
+    }
+
+    private fun showStepCounterWarning() {
+        runOnUiThread {
+            androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("Schrittzähler nicht verfügbar")
+                .setMessage("Der Schrittzähler ist auf diesem Gerät nicht verfügbar.\n\n" +
+                        "Die Videogeschwindigkeit wird NICHT automatisch angepasst.\n\n" +
+                        "Empfehlung: Passen Sie die Geschwindigkeiten im Einstellungsmenü (⋮) manuell an.")
+                .setPositiveButton("OK") { dialog, _ ->
+                    dialog.dismiss()
+                }
+                .setNegativeButton("Beenden") { _, _ ->
+                    finish()
+                }
+                .setCancelable(false)
+                .show()
+        }
+    }
+
+    private fun showVideoErrorDialog(errorMessage: String) {
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Video-Fehler")
+            .setMessage("$errorMessage\n\nMöchten Sie ein anderes Video auswählen?")
+            .setPositiveButton("Video auswählen") { _, _ ->
+                openVideoPicker()
+            }
+            .setNegativeButton("Beenden") { _, _ ->
+                finish()
+            }
+            .setCancelable(false)
+            .show()
     }
 
     private fun calibrateOrientation() {
@@ -173,22 +442,70 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
-        if (keyCode == KeyEvent.KEYCODE_VOLUME_UP) {
-            val currentTime = System.currentTimeMillis()
-            val timeSinceLastPress = currentTime - lastVolumeUpPressTime
+        when (keyCode) {
+            KeyEvent.KEYCODE_VOLUME_UP -> {
+                val currentTime = System.currentTimeMillis()
+                val timeSinceLastPress = currentTime - lastVolumeUpPressTime
 
-            if (timeSinceLastPress < DOUBLE_PRESS_INTERVAL) {
-                // Double press detected!
-                calibrateOrientation()
-                lastVolumeUpPressTime = 0L // Reset to prevent triple-press
-                return true // Consume the event (don't change volume)
-            } else {
-                // First press
-                lastVolumeUpPressTime = currentTime
+                if (timeSinceLastPress < DOUBLE_PRESS_INTERVAL) {
+                    // Double press detected - Recalibrate
+                    calibrateOrientation()
+                    lastVolumeUpPressTime = 0L
+                    return true
+                } else {
+                    lastVolumeUpPressTime = currentTime
+                }
+            }
+            KeyEvent.KEYCODE_VOLUME_DOWN -> {
+                val currentTime = System.currentTimeMillis()
+                val timeSinceLastPress = currentTime - lastVolumeDownPressTime
+
+                if (timeSinceLastPress < DOUBLE_PRESS_INTERVAL) {
+                    // Double press detected - Restart session
+                    restartSession()
+                    lastVolumeDownPressTime = 0L
+                    return true
+                } else {
+                    lastVolumeDownPressTime = currentTime
+                }
             }
         }
 
         return super.onKeyDown(keyCode, event)
+    }
+
+    private fun restartSession() {
+        android.util.Log.d("MainActivity", "Restarting session")
+
+        // Reset stats
+        sessionSteps = 0
+        startTime = System.currentTimeMillis()
+        isVideoStarted = false
+        stepController.reset()
+
+        // Hide finish overlay
+        finishOverlay.visibility = View.GONE
+
+        // Restart video
+        vrRenderer.restartVideo()
+
+        Toast.makeText(this, "Session restarted", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun showFinishOverlay() {
+        val elapsedSeconds = (System.currentTimeMillis() - startTime) / 1000
+        val distance = stepController.getEstimatedDistance(sessionSteps)
+        val calories = stepController.getEstimatedCalories(sessionSteps)
+
+        val finishMessage = """Zeit: ${formatTime(elapsedSeconds)}
+Schritte: $sessionSteps
+Distanz: ${String.format("%.1f", distance)}km
+Kalorien: ${calories}kcal"""
+
+        finishText.text = finishMessage
+        finishOverlay.visibility = View.VISIBLE
+
+        android.util.Log.d("MainActivity", "Video finished - showing completion overlay")
     }
 
     private fun startUIUpdateLoop() {
@@ -250,6 +567,14 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                         sessionSteps += newSteps
                         totalSteps = currentTotal
                         stepController.addStep()
+
+                        // Start video on first step
+                        if (!isVideoStarted) {
+                            isVideoStarted = true
+                            vrRenderer.startVideo()
+                            android.util.Log.d("MainActivity", "First step detected! Starting video...")
+                        }
+
                         android.util.Log.d("MainActivity", "Steps: $sessionSteps")
                     }
                 }
@@ -262,6 +587,32 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     override fun onResume() {
         super.onResume()
         glSurfaceView.onResume()
+
+        // Reload settings when returning from SettingsActivity
+        AppConfig.loadFromPreferences(this)
+
+        // Check if video URI changed
+        val savedUri = getSavedVideoUri()
+        if (savedUri != null && savedUri != selectedVideoUri && isVRActive) {
+            // New video selected - reload and reset
+            selectedVideoUri = savedUri
+            android.util.Log.d("MainActivity", "New video detected - reloading: $savedUri")
+            vrRenderer.setVideoUri(savedUri)
+            restartSession()
+        } else {
+            // Just update volume if player is running
+            vrRenderer.updateVolume()
+        }
+
+        // Re-register sensor listeners if VR is active
+        if (isVRActive) {
+            rotationVector?.let {
+                sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME)
+            }
+            stepCounter?.let {
+                sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
+            }
+        }
     }
 
     override fun onPause() {
