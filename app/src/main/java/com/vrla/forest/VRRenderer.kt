@@ -33,6 +33,7 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
     private var mvpMatrixHandle = 0
     private var textureHandle = 0
     private var texOffsetHandle = 0
+    private var texScaleHandle = 0
 
     private lateinit var sphereVertices: FloatBuffer
     private lateinit var sphereTexCoords: FloatBuffer
@@ -82,6 +83,7 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
         mvpMatrixHandle = GLES30.glGetUniformLocation(program, "uMVPMatrix")
         textureHandle = GLES30.glGetUniformLocation(program, "uTexture")
         texOffsetHandle = GLES30.glGetUniformLocation(program, "uTexOffsetU")
+        texScaleHandle = GLES30.glGetUniformLocation(program, "uTexScaleX")
 
         surfaceTexture = SurfaceTexture(textureId).apply {
             setOnFrameAvailableListener(this@VRRenderer)
@@ -116,15 +118,18 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
         GLES30.glUseProgram(program)
         setupViewMatrices()
 
+        // Texture scaling: Mono mode uses full video (1.0x), Stereo mode uses half (0.5x for side-by-side)
+        val texScale = if (AppConfig.stereoMode) 0.5f else 1.0f
+
         // Left eye
         GLES30.glViewport(0, 0, screenWidth / 2, screenHeight)
-        drawSphere(viewMatrixLeft, 0f)
+        drawSphere(viewMatrixLeft, 0f, texScale)
 
         // Right eye
         GLES30.glViewport(screenWidth / 2, 0, screenWidth / 2, screenHeight)
         // Mono mode: both eyes see the same (offset 0.0), Stereo mode: right eye sees right half (offset 0.5)
         val rightEyeOffset = if (AppConfig.stereoMode) 0.5f else 0f
-        drawSphere(viewMatrixRight, rightEyeOffset)
+        drawSphere(viewMatrixRight, rightEyeOffset, texScale)
     }
 
     private fun setupViewMatrices() {
@@ -179,7 +184,7 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
         Matrix.multiplyMM(viewMatrixRight, 0, tempMatrix, 0, viewMatrixRight, 0)
     }
 
-    private fun drawSphere(viewMatrix: FloatArray, texOffsetU: Float) {
+    private fun drawSphere(viewMatrix: FloatArray, texOffsetU: Float, texScaleX: Float) {
         // MVP = Projection * View * Model
         Matrix.multiplyMM(tempMatrix2, 0, viewMatrix, 0, modelMatrix, 0)
         Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, tempMatrix2, 0)
@@ -189,6 +194,7 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
         GLES30.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, textureId)
         GLES30.glUniform1i(textureHandle, 0)
         GLES30.glUniform1f(texOffsetHandle, texOffsetU)
+        GLES30.glUniform1f(texScaleHandle, texScaleX)
         GLES30.glUniformMatrix4fv(mvpMatrixHandle, 1, false, mvpMatrix, 0)
 
         sphereVertices.position(0)
@@ -271,11 +277,12 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
             in vec2 aTexCoord;
             uniform mat4 uMVPMatrix;
             uniform float uTexOffsetU;
+            uniform float uTexScaleX;
             out vec2 vTexCoord;
-            
+
             void main() {
                 gl_Position = uMVPMatrix * aPosition;
-                vTexCoord = vec2(aTexCoord.x * 0.5 + uTexOffsetU, aTexCoord.y);
+                vTexCoord = vec2(aTexCoord.x * uTexScaleX + uTexOffsetU, aTexCoord.y);
             }
         """.trimIndent()
 
