@@ -128,14 +128,19 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
     }
 
     private fun setupViewMatrices() {
-        // Model matrix: Apply video rotation correction to the sphere (world coordinates)
+        // Model matrix: Identity (no rotation on the sphere itself)
         Matrix.setIdentityM(modelMatrix, 0)
-        Matrix.rotateM(modelMatrix, 0, AppConfig.videoRotation, 0f, 0f, 1f)
 
-        // Create base view matrix with head tracking rotations
-        // For 360° video, we rotate the camera (view), not the world (model)
-        // Rotation order: Yaw (Y) -> Pitch (X) -> Roll (Z)
+        // Create base view matrix with BOTH video rotation AND head tracking
+        // CRITICAL: Apply video rotation FIRST, then head tracking in that corrected space
+        // This ensures head tracking axes align with the video's coordinate system
         Matrix.setIdentityM(tempMatrix, 0)
+
+        // Step 1: Apply video rotation to correct video orientation
+        Matrix.rotateM(tempMatrix, 0, AppConfig.videoRotation, 0f, 0f, 1f)
+
+        // Step 2: Apply head tracking in the video's corrected coordinate system
+        // Rotation order: Yaw (Y) -> Pitch (X) -> Roll (Z)
         Matrix.rotateM(tempMatrix, 0, yaw, 0f, 1f, 0f)      // Horizontal rotation
         Matrix.rotateM(tempMatrix, 0, -pitch, 1f, 0f, 0f)   // Vertical rotation (inverted for correct up/down)
         Matrix.rotateM(tempMatrix, 0, roll, 0f, 0f, 1f)     // Head tilt
