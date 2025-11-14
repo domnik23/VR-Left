@@ -128,22 +128,29 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
     }
 
     private fun setupViewMatrices() {
-        // Model matrix: Identity (no rotation on the sphere itself)
-        Matrix.setIdentityM(modelMatrix, 0)
+        // Transform sensor axes based on video rotation
+        // The sensor data is in device coordinates, but the video might be rotated
+        // We need to map the sensor axes to the video coordinate system
+        val (mappedYaw, mappedPitch, mappedRoll) = when (AppConfig.videoRotation) {
+            90f -> Triple(yaw, -roll, pitch)
+            180f -> Triple(yaw, -pitch, -roll)
+            270f -> Triple(yaw, roll, -pitch)
+            else -> Triple(yaw, pitch, roll)  // 0° or default
+        }
 
-        // Create base view matrix with BOTH video rotation AND head tracking
-        // CRITICAL: Apply video rotation FIRST, then head tracking in that corrected space
-        // This ensures head tracking axes align with the video's coordinate system
+        // Model matrix: Apply video rotation to orient the texture correctly on the sphere
+        Matrix.setIdentityM(modelMatrix, 0)
+        Matrix.rotateM(modelMatrix, 0, AppConfig.videoRotation, 0f, 0f, 1f)
+
+        // Create view matrix with mapped head tracking rotations
+        // The sensor axes are now correctly aligned with the video coordinate system
         Matrix.setIdentityM(tempMatrix, 0)
 
-        // Step 1: Apply video rotation to correct video orientation
-        Matrix.rotateM(tempMatrix, 0, AppConfig.videoRotation, 0f, 0f, 1f)
-
-        // Step 2: Apply head tracking in the video's corrected coordinate system
+        // Apply head tracking in the correct coordinate system
         // Rotation order: Yaw (Y) -> Pitch (X) -> Roll (Z)
-        Matrix.rotateM(tempMatrix, 0, yaw, 0f, 1f, 0f)      // Horizontal rotation
-        Matrix.rotateM(tempMatrix, 0, -pitch, 1f, 0f, 0f)   // Vertical rotation (inverted for correct up/down)
-        Matrix.rotateM(tempMatrix, 0, roll, 0f, 0f, 1f)     // Head tilt
+        Matrix.rotateM(tempMatrix, 0, mappedYaw, 0f, 1f, 0f)      // Horizontal rotation
+        Matrix.rotateM(tempMatrix, 0, -mappedPitch, 1f, 0f, 0f)   // Vertical rotation (inverted for correct up/down)
+        Matrix.rotateM(tempMatrix, 0, mappedRoll, 0f, 0f, 1f)     // Head tilt
 
         // Left eye: IPD offset to the left
         Matrix.setIdentityM(viewMatrixLeft, 0)
