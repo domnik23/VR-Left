@@ -137,7 +137,7 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
         // Rotation order: Yaw (Y) -> Pitch (X) -> Roll (Z)
         Matrix.setIdentityM(tempMatrix, 0)
         Matrix.rotateM(tempMatrix, 0, yaw, 0f, 1f, 0f)      // Horizontal rotation
-        Matrix.rotateM(tempMatrix, 0, pitch, 1f, 0f, 0f)    // Vertical rotation
+        Matrix.rotateM(tempMatrix, 0, -pitch, 1f, 0f, 0f)   // Vertical rotation (inverted for correct up/down)
         Matrix.rotateM(tempMatrix, 0, roll, 0f, 0f, 1f)     // Head tilt
 
         // Left eye: IPD offset to the left
