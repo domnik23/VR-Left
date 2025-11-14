@@ -162,7 +162,7 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
             270f -> {
                 // At 270°: Video-X→World(Y), Video-Y→World(-X), Video-Z→World(Z)
                 Matrix.rotateM(tempMatrix, 0, yaw, 0f, 0f, 1f)       // Yaw around Z
-                Matrix.rotateM(tempMatrix, 0, -pitch, 0f, 1f, 0f)    // Pitch around Y
+                Matrix.rotateM(tempMatrix, 0, pitch, 0f, 1f, 0f)     // Pitch around Y
                 Matrix.rotateM(tempMatrix, 0, roll, -1f, 0f, 0f)     // Roll around -X
             }
             else -> {
