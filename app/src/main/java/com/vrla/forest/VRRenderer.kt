@@ -61,7 +61,6 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
     private var isCalibrated = false                   // True after calibrateOrientation() called
 
     private var playbackSpeed = 0.3f
-    private var updateTexture = false
 
     private val sphereRadius = 10f
     private val sphereStacks = 30
@@ -119,10 +118,9 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
     override fun onDrawFrame(gl: GL10?) {
         GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT or GLES30.GL_DEPTH_BUFFER_BIT)
 
-        if (updateTexture) {
-            surfaceTexture?.updateTexImage()
-            updateTexture = false
-        }
+        // Always update texture (safe to call even if no new frame available)
+        // This prevents video freezing issues caused by missed onFrameAvailable callbacks
+        surfaceTexture?.updateTexImage()
 
         GLES30.glUseProgram(program)
         setupViewMatrices()
@@ -508,7 +506,8 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
     }
 
     override fun onFrameAvailable(surfaceTexture: SurfaceTexture?) {
-        updateTexture = true
+        // Frame is available - will be picked up in next onDrawFrame call
+        // No flag needed since we call updateTexImage() every frame
     }
 
     fun restartVideo() {
