@@ -133,45 +133,28 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
     }
 
     private fun setupViewMatrices() {
-        // Model matrix: Apply video rotation to orient the texture correctly on the sphere
+        // CLEAN SLATE: Start with basics, no video rotation yet
+        // Model matrix: Identity (sphere stays at origin, no rotation)
         Matrix.setIdentityM(modelMatrix, 0)
-        Matrix.rotateM(modelMatrix, 0, AppConfig.videoRotation, 0f, 0f, 1f)
 
-        // Create view matrix with head tracking
-        // CRITICAL: We must rotate around the TRANSFORMED AXES based on video rotation
-        // At 270° video rotation:
-        //   - Video's X-axis (pitch) is aligned with World's Y-axis
-        //   - Video's Y-axis (roll) is aligned with World's -X-axis
-        //   - Video's Z-axis (yaw) is aligned with World's Z-axis
+        // View matrix: Head tracking only
+        // Android sensor orientation:
+        //   orientationAngles[0] = Azimuth (compass) → yaw
+        //   orientationAngles[1] = Pitch (tilt forward/back) → pitch
+        //   orientationAngles[2] = Roll (tilt left/right) → roll
+        //
+        // Standard OpenGL/VR coordinate system:
+        //   Yaw   = Rotation around Y-axis (vertical) → look left/right
+        //   Pitch = Rotation around X-axis (horizontal) → look up/down
+        //   Roll  = Rotation around Z-axis (forward) → tilt head
 
         Matrix.setIdentityM(tempMatrix, 0)
 
-        when (AppConfig.videoRotation) {
-            90f -> {
-                // At 90°: Video-X→World(-Y), Video-Y→World(X), Video-Z→World(Z)
-                Matrix.rotateM(tempMatrix, 0, yaw, 0f, 0f, 1f)       // Yaw around Z
-                Matrix.rotateM(tempMatrix, 0, -pitch, 0f, -1f, 0f)   // Pitch around -Y
-                Matrix.rotateM(tempMatrix, 0, roll, 1f, 0f, 0f)      // Roll around X
-            }
-            180f -> {
-                // At 180°: Video-X→World(-X), Video-Y→World(-Y), Video-Z→World(Z)
-                Matrix.rotateM(tempMatrix, 0, yaw, 0f, 0f, 1f)       // Yaw around Z
-                Matrix.rotateM(tempMatrix, 0, -pitch, -1f, 0f, 0f)   // Pitch around -X
-                Matrix.rotateM(tempMatrix, 0, roll, 0f, -1f, 0f)     // Roll around -Y
-            }
-            270f -> {
-                // At 270°: Video-X→World(-Y), Video-Y→World(X), Video-Z→World(Z)
-                Matrix.rotateM(tempMatrix, 0, yaw, 0f, 0f, 1f)       // Yaw around Z
-                Matrix.rotateM(tempMatrix, 0, pitch, 0f, -1f, 0f)    // Pitch around -Y
-                Matrix.rotateM(tempMatrix, 0, roll, 1f, 0f, 0f)      // Roll around X
-            }
-            else -> {
-                // 0° or default: No transformation needed
-                Matrix.rotateM(tempMatrix, 0, yaw, 0f, 1f, 0f)       // Yaw around Y
-                Matrix.rotateM(tempMatrix, 0, -pitch, 1f, 0f, 0f)    // Pitch around X
-                Matrix.rotateM(tempMatrix, 0, roll, 0f, 0f, 1f)      // Roll around Z
-            }
-        }
+        // Apply rotations in order
+        // Note: View matrix is INVERSE of camera transform, so we negate angles
+        Matrix.rotateM(tempMatrix, 0, -yaw, 0f, 1f, 0f)      // Yaw around Y-axis
+        Matrix.rotateM(tempMatrix, 0, -pitch, 1f, 0f, 0f)    // Pitch around X-axis
+        Matrix.rotateM(tempMatrix, 0, -roll, 0f, 0f, 1f)     // Roll around Z-axis
 
         // Left eye: IPD offset to the left
         Matrix.setIdentityM(viewMatrixLeft, 0)
