@@ -39,21 +39,26 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
     private lateinit var sphereTexCoords: FloatBuffer
     private lateinit var sphereIndices: IntBuffer
 
-    private val projectionMatrix = FloatArray(16)
-    private val viewMatrixLeft = FloatArray(16)
-    private val viewMatrixRight = FloatArray(16)
-    private val modelMatrix = FloatArray(16)
-    private val mvpMatrix = FloatArray(16)
-    private val tempMatrix = FloatArray(16)
-    private val tempMatrix2 = FloatArray(16)
+    // Transformation matrices for 3D rendering
+    private val projectionMatrix = FloatArray(16)      // Camera lens projection
+    private val viewMatrixLeft = FloatArray(16)        // Left eye view (head tracking + IPD)
+    private val viewMatrixRight = FloatArray(16)       // Right eye view (head tracking + IPD)
+    private val modelMatrix = FloatArray(16)           // 360° sphere world transformation
+    private val mvpMatrix = FloatArray(16)             // Combined Model-View-Projection matrix
+    private val tempMatrix = FloatArray(16)            // Temporary for matrix operations
+    private val tempMatrix2 = FloatArray(16)           // Temporary for matrix operations
 
-    // Head tracking using rotation matrix directly (not Euler angles)
-    private val headRotationMatrix = FloatArray(16)
-    private val uncalibratedRotation = FloatArray(16)  // Store original rotation for calibration
-    private val calibrationMatrix = FloatArray(16)
-    private val calibratedRotation = FloatArray(16)
-    private var hasHeadRotation = false
-    private var isCalibrated = false
+    // Head tracking system using rotation matrices (avoids gimbal lock)
+    // Why rotation matrices instead of Euler angles?
+    // - Euler angles suffer from gimbal lock at 90° pitch
+    // - Rotation matrices are the native output from Android sensors
+    // - More accurate and stable for VR applications
+    private val headRotationMatrix = FloatArray(16)    // Final rotation applied to view (calibrated)
+    private val uncalibratedRotation = FloatArray(16)  // Raw sensor rotation (for calibration)
+    private val calibrationMatrix = FloatArray(16)     // Calibration offset matrix
+    private val calibratedRotation = FloatArray(16)    // Unused (kept for potential future use)
+    private var hasHeadRotation = false                // True after first sensor update
+    private var isCalibrated = false                   // True after calibrateOrientation() called
 
     private var playbackSpeed = 0.3f
     private var updateTexture = false
@@ -136,6 +141,19 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
         drawSphere(viewMatrixRight, rightEyeOffset, texScale)
     }
 
+    /**
+     * Setup view matrices for stereo VR rendering
+     *
+     * Matrix hierarchy:
+     * - Model Matrix: Rotates the 360° sphere to correct video orientation
+     * - View Matrix: Applies head tracking and stereo eye offset (IPD)
+     * - Projection Matrix: Perspective projection for VR lenses
+     *
+     * Key concepts:
+     * - IPD (Inter-Pupillary Distance): Eye separation for stereo 3D effect
+     * - Matrix multiplication order: translation * rotation (not rotation * translation)
+     *   This ensures IPD offset happens in camera space, not world space
+     */
     private fun setupViewMatrices() {
         // Model matrix: Rotate to correct video orientation
         // Video was pointing at sky, rotate 90° down (around X-axis)
@@ -154,6 +172,7 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
         }
 
         // Left eye: Rotation, then IPD offset in camera space
+        // Matrix multiplication: viewMatrix = translation * rotation
         Matrix.setIdentityM(viewMatrixLeft, 0)
         Matrix.translateM(viewMatrixLeft, 0, -AppConfig.ipd / 2f, 0f, 0f)
         Matrix.multiplyMM(viewMatrixLeft, 0, viewMatrixLeft, 0, tempMatrix, 0)
@@ -402,6 +421,25 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
         }
     }
 
+    /**
+     * Update head rotation from sensor data
+     *
+     * Flow:
+     * 1. Convert 3x3 sensor rotation matrix to 4x4 OpenGL matrix
+     * 2. Store uncalibrated rotation for calibration purposes
+     * 3. If calibrated: Apply calibration matrix to current rotation
+     *
+     * Why use rotation matrices instead of Euler angles?
+     * - Avoids gimbal lock (Euler angle singularity at 90° pitch)
+     * - More accurate for VR head tracking
+     * - Direct from Android sensor (no conversion needed)
+     *
+     * Coordinate system:
+     * - Input: Android sensor coordinate system (remapped to landscape in MainActivity)
+     * - Output: OpenGL coordinate system for rendering
+     *
+     * @param rotationMatrix3x3 9-element rotation matrix from SensorManager
+     */
     fun updateHeadRotation(rotationMatrix3x3: FloatArray) {
         // Convert 3x3 rotation matrix to 4x4 for OpenGL
         // The sensor rotation matrix describes device orientation in world space
@@ -427,10 +465,12 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
         temp4x4[15] = 1f
 
         // Always store the uncalibrated rotation for calibration purposes
+        // This is CRITICAL: We need the raw sensor rotation, not the calibrated one,
+        // otherwise calibrations would stack on top of each other
         System.arraycopy(temp4x4, 0, uncalibratedRotation, 0, 16)
 
         if (isCalibrated) {
-            // Apply calibration: calibratedRotation = calibrationMatrix^T * currentRotation
+            // Apply calibration: calibratedRotation = calibrationMatrix * currentRotation
             // This makes the calibration orientation the new "zero" orientation
             Matrix.multiplyMM(headRotationMatrix, 0, calibrationMatrix, 0, temp4x4, 0)
         } else {
@@ -440,6 +480,20 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
         hasHeadRotation = true
     }
 
+    /**
+     * Calibrate head orientation to current position
+     *
+     * Makes the current head position the new "forward" direction.
+     * Uses the UNCALIBRATED rotation to prevent calibration stacking.
+     *
+     * The calibration matrix is the transpose (inverse for rotation matrices)
+     * of the current uncalibrated rotation. When multiplied with future rotations,
+     * this effectively "zeros out" the current orientation.
+     *
+     * Called:
+     * - Automatically on app start (after initial sensor data)
+     * - Manually by double-pressing Volume Up button
+     */
     fun calibrateOrientation() {
         if (hasHeadRotation) {
             // Store inverse (transpose) of UNCALIBRATED rotation as calibration
