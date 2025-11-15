@@ -550,8 +550,8 @@ Kalorien: ${calories}kcal"""
                     val calibratedYaw = orientationAngles[0] - calibrationYaw
                     vrRenderer.updateOrientation(
                         calibratedYaw,
-                        orientationAngles[1],
-                        orientationAngles[2]
+                        orientationAngles[2],    // Swap: pitch = sensor roll
+                        orientationAngles[1]     // Swap: roll = sensor pitch
                     )
                 }
             }
