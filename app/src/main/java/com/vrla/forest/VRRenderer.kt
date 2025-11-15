@@ -49,6 +49,7 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
 
     // Head tracking using rotation matrix directly (not Euler angles)
     private val headRotationMatrix = FloatArray(16)
+    private val uncalibratedRotation = FloatArray(16)  // Store original rotation for calibration
     private val calibrationMatrix = FloatArray(16)
     private val calibratedRotation = FloatArray(16)
     private var hasHeadRotation = false
@@ -425,6 +426,9 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
         temp4x4[14] = 0f
         temp4x4[15] = 1f
 
+        // Always store the uncalibrated rotation for calibration purposes
+        System.arraycopy(temp4x4, 0, uncalibratedRotation, 0, 16)
+
         if (isCalibrated) {
             // Apply calibration: calibratedRotation = calibrationMatrix^T * currentRotation
             // This makes the calibration orientation the new "zero" orientation
@@ -438,11 +442,11 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
 
     fun calibrateOrientation() {
         if (hasHeadRotation) {
-            // Store inverse (transpose) of current rotation as calibration
-            // This will make current orientation the new "forward" direction
-            Matrix.transposeM(calibrationMatrix, 0, headRotationMatrix, 0)
+            // Store inverse (transpose) of UNCALIBRATED rotation as calibration
+            // This prevents calibration from stacking on top of previous calibrations
+            Matrix.transposeM(calibrationMatrix, 0, uncalibratedRotation, 0)
             isCalibrated = true
-            android.util.Log.d("VRRenderer", "Orientation calibrated")
+            android.util.Log.d("VRRenderer", "Orientation calibrated to current position")
         }
     }
 
