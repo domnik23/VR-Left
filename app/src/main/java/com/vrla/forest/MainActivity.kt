@@ -63,11 +63,9 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private var sessionSteps = 0
 
     private val rotationMatrix = FloatArray(9)
+    private val remappedRotationMatrix = FloatArray(9)
     private val orientationAngles = FloatArray(3)
     private var calibrationYaw = 0f
-
-    // Debug: throttle logging
-    private var lastLogTime = 0L
 
     private var selectedVideoUri: Uri? = null
 
@@ -548,24 +546,19 @@ Kalorien: ${calories}kcal"""
                 if (isVRActive) {
                     SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values)
 
-                    // DEBUG: Log rotation matrix values every 500ms to understand sensor data
-                    val currentTime = System.currentTimeMillis()
-                    if (currentTime - lastLogTime > 500) {
-                        lastLogTime = currentTime
-                        android.util.Log.d("HeadTracking", String.format(
-                            "Rotation Matrix:\n" +
-                            "  [%.3f, %.3f, %.3f]\n" +
-                            "  [%.3f, %.3f, %.3f]\n" +
-                            "  [%.3f, %.3f, %.3f]",
-                            rotationMatrix[0], rotationMatrix[1], rotationMatrix[2],
-                            rotationMatrix[3], rotationMatrix[4], rotationMatrix[5],
-                            rotationMatrix[6], rotationMatrix[7], rotationMatrix[8]
-                        ))
-                    }
+                    // Remap axes for landscape mode (phone rotated 90° left in VR headset)
+                    // Portrait: X=right, Y=up, Z=out
+                    // Landscape: X=up, Y=left, Z=out
+                    // So we remap: X→Y, Y→-X, Z→Z
+                    SensorManager.remapCoordinateSystem(
+                        rotationMatrix,
+                        SensorManager.AXIS_Y,        // new X-axis = old Y-axis
+                        SensorManager.AXIS_MINUS_X,  // new Y-axis = old -X-axis
+                        remappedRotationMatrix
+                    )
 
-                    // Use rotation matrix directly - no Euler angle conversion needed!
-                    // This avoids gimbal lock and axis confusion
-                    vrRenderer.updateHeadRotation(rotationMatrix)
+                    // Use remapped rotation matrix for landscape orientation
+                    vrRenderer.updateHeadRotation(remappedRotationMatrix)
                 }
             }
 
