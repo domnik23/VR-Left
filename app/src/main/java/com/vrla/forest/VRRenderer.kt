@@ -484,11 +484,14 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
      * Calibrate head orientation to current position
      *
      * Makes the current head position the new "forward" direction.
-     * Uses the UNCALIBRATED rotation to prevent calibration stacking.
      *
      * The calibration matrix is the transpose (inverse for rotation matrices)
-     * of the current uncalibrated rotation. When multiplied with future rotations,
+     * of the current rotation. When multiplied with future rotations,
      * this effectively "zeros out" the current orientation.
+     *
+     * Note: Uses headRotationMatrix (v1.3 approach) for immediate calibration.
+     * This may cause calibration stacking on repeated calls, but works better
+     * for initial app startup calibration.
      *
      * Called:
      * - Automatically on app start (after initial sensor data)
@@ -496,11 +499,11 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
      */
     fun calibrateOrientation() {
         if (hasHeadRotation) {
-            // Store inverse (transpose) of UNCALIBRATED rotation as calibration
-            // This prevents calibration from stacking on top of previous calibrations
-            Matrix.transposeM(calibrationMatrix, 0, uncalibratedRotation, 0)
+            // Store inverse (transpose) of current rotation as calibration
+            // This will make current orientation the new "forward" direction
+            Matrix.transposeM(calibrationMatrix, 0, headRotationMatrix, 0)
             isCalibrated = true
-            android.util.Log.d("VRRenderer", "Orientation calibrated to current position")
+            android.util.Log.d("VRRenderer", "Orientation calibrated")
         }
     }
 
