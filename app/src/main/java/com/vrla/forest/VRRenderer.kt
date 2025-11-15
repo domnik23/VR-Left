@@ -136,9 +136,8 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
     }
 
     private fun setupViewMatrices() {
-        // Model matrix: Rotate video 90° clockwise to correct landscape orientation
+        // Model matrix: Identity (sphere stays at origin, no rotation)
         Matrix.setIdentityM(modelMatrix, 0)
-        Matrix.rotateM(modelMatrix, 0, 90f, 0f, 0f, 1f)  // Rotate 90° around Z-axis
 
         // View matrix approach for 360° video:
         // The sensor rotation describes how the phone is oriented.
