@@ -384,8 +384,10 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             totalSteps = 0
         }
 
-        // Video startet erst beim ersten Schritt
-        android.util.Log.d("MainActivity", "Waiting for first step to start video...")
+        // Start video immediately
+        isVideoStarted = true
+        vrRenderer.startVideo()
+        android.util.Log.d("MainActivity", "Starting video immediately...")
 
         startUIUpdateLoop()
         calibrateOrientation()
