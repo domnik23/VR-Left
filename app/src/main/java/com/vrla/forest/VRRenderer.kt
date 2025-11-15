@@ -139,26 +139,26 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
         // Model matrix: Identity (sphere stays at origin, no rotation)
         Matrix.setIdentityM(modelMatrix, 0)
 
-        // View matrix: Use rotation matrix directly from sensor
-        // The sensor rotation matrix describes device orientation in world coordinates
-        // For the view matrix (camera), we need the inverse = transpose for rotation matrices
+        // View matrix approach for 360° video:
+        // The sensor rotation describes how the phone is oriented.
+        // We want to rotate the world OPPOSITE to the phone rotation.
 
         if (hasHeadRotation) {
-            // Transpose the rotation matrix (inverse for orthogonal matrices)
-            Matrix.transposeM(tempMatrix, 0, headRotationMatrix, 0)
+            // Use the rotation matrix directly (already in correct orientation)
+            System.arraycopy(headRotationMatrix, 0, tempMatrix, 0, 16)
         } else {
             Matrix.setIdentityM(tempMatrix, 0)
         }
 
-        // Left eye: IPD offset to the left
+        // Left eye: Rotation, then IPD offset in camera space
         Matrix.setIdentityM(viewMatrixLeft, 0)
         Matrix.translateM(viewMatrixLeft, 0, -AppConfig.ipd / 2f, 0f, 0f)
-        Matrix.multiplyMM(viewMatrixLeft, 0, tempMatrix, 0, viewMatrixLeft, 0)
+        Matrix.multiplyMM(viewMatrixLeft, 0, viewMatrixLeft, 0, tempMatrix, 0)
 
-        // Right eye: IPD offset to the right
+        // Right eye: Rotation, then IPD offset in camera space
         Matrix.setIdentityM(viewMatrixRight, 0)
         Matrix.translateM(viewMatrixRight, 0, AppConfig.ipd / 2f, 0f, 0f)
-        Matrix.multiplyMM(viewMatrixRight, 0, tempMatrix, 0, viewMatrixRight, 0)
+        Matrix.multiplyMM(viewMatrixRight, 0, viewMatrixRight, 0, tempMatrix, 0)
     }
 
     private fun drawSphere(viewMatrix: FloatArray, texOffsetU: Float, texScaleX: Float) {

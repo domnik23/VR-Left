@@ -546,14 +546,12 @@ Kalorien: ${calories}kcal"""
                 if (isVRActive) {
                     SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values)
 
-                    // Remap axes for landscape mode (phone rotated 90° left in VR headset)
-                    // Portrait: X=right, Y=up, Z=out
-                    // Landscape: X=up, Y=left, Z=out
-                    // So we remap: X→Y, Y→-X, Z→Z
+                    // Remap axes for landscape mode
+                    // Try: Phone rotated 90° LEFT (counterclockwise) in VR headset
                     SensorManager.remapCoordinateSystem(
                         rotationMatrix,
-                        SensorManager.AXIS_Y,        // new X-axis = old Y-axis
-                        SensorManager.AXIS_MINUS_X,  // new Y-axis = old -X-axis
+                        SensorManager.AXIS_MINUS_Y,  // new X-axis
+                        SensorManager.AXIS_X,        // new Y-axis
                         remappedRotationMatrix
                     )
 
