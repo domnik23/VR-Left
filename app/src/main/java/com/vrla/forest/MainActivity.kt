@@ -436,8 +436,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     }
 
     private fun calibrateOrientation() {
-        calibrationYaw = orientationAngles[0]
-        android.util.Log.d("MainActivity", "Orientation calibrated: $calibrationYaw")
+        vrRenderer.calibrateOrientation()
         Toast.makeText(this, "View recalibrated", Toast.LENGTH_SHORT).show()
     }
 
@@ -545,14 +544,10 @@ Kalorien: ${calories}kcal"""
             Sensor.TYPE_ROTATION_VECTOR -> {
                 if (isVRActive) {
                     SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values)
-                    SensorManager.getOrientation(rotationMatrix, orientationAngles)
 
-                    val calibratedYaw = orientationAngles[0] - calibrationYaw
-                    vrRenderer.updateOrientation(
-                        calibratedYaw,
-                        orientationAngles[2],    // Swap: pitch = sensor roll
-                        orientationAngles[1]     // Swap: roll = sensor pitch
-                    )
+                    // Use rotation matrix directly - no Euler angle conversion needed!
+                    // This avoids gimbal lock and axis confusion
+                    vrRenderer.updateHeadRotation(rotationMatrix)
                 }
             }
 
