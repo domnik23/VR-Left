@@ -390,7 +390,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         android.util.Log.d("MainActivity", "Starting video immediately...")
 
         startUIUpdateLoop()
-        // Note: No automatic calibration on start - user can manually calibrate with Volume Up
+        calibrateOrientation()  // Auto-calibrate on start (v1.3 behavior)
     }
 
     private fun showGyroscopeWarning() {
