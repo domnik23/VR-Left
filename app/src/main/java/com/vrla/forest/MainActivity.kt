@@ -384,13 +384,13 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             totalSteps = 0
         }
 
-        // Start video immediately
+        // Video will start immediately (video starts on app launch)
         isVideoStarted = true
         vrRenderer.startVideo()
         android.util.Log.d("MainActivity", "Starting video immediately...")
 
         startUIUpdateLoop()
-        calibrateOrientation()
+        // Note: No automatic calibration on start - user can manually calibrate with Volume Up
     }
 
     private fun showGyroscopeWarning() {
