@@ -66,6 +66,9 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private val orientationAngles = FloatArray(3)
     private var calibrationYaw = 0f
 
+    // Debug: throttle logging
+    private var lastLogTime = 0L
+
     private var selectedVideoUri: Uri? = null
 
     private val videoPickerLauncher = registerForActivityResult(
@@ -544,6 +547,21 @@ Kalorien: ${calories}kcal"""
             Sensor.TYPE_ROTATION_VECTOR -> {
                 if (isVRActive) {
                     SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values)
+
+                    // DEBUG: Log rotation matrix values every 500ms to understand sensor data
+                    val currentTime = System.currentTimeMillis()
+                    if (currentTime - lastLogTime > 500) {
+                        lastLogTime = currentTime
+                        android.util.Log.d("HeadTracking", String.format(
+                            "Rotation Matrix:\n" +
+                            "  [%.3f, %.3f, %.3f]\n" +
+                            "  [%.3f, %.3f, %.3f]\n" +
+                            "  [%.3f, %.3f, %.3f]",
+                            rotationMatrix[0], rotationMatrix[1], rotationMatrix[2],
+                            rotationMatrix[3], rotationMatrix[4], rotationMatrix[5],
+                            rotationMatrix[6], rotationMatrix[7], rotationMatrix[8]
+                        ))
+                    }
 
                     // Use rotation matrix directly - no Euler angle conversion needed!
                     // This avoids gimbal lock and axis confusion

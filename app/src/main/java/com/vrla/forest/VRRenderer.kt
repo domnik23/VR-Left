@@ -441,6 +441,17 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
             Matrix.transposeM(calibrationMatrix, 0, headRotationMatrix, 0)
             isCalibrated = true
             android.util.Log.d("VRRenderer", "Orientation calibrated")
+            android.util.Log.d("VRRenderer", String.format(
+                "Calibration Matrix:\n" +
+                "  [%.3f, %.3f, %.3f, %.3f]\n" +
+                "  [%.3f, %.3f, %.3f, %.3f]\n" +
+                "  [%.3f, %.3f, %.3f, %.3f]\n" +
+                "  [%.3f, %.3f, %.3f, %.3f]",
+                calibrationMatrix[0], calibrationMatrix[1], calibrationMatrix[2], calibrationMatrix[3],
+                calibrationMatrix[4], calibrationMatrix[5], calibrationMatrix[6], calibrationMatrix[7],
+                calibrationMatrix[8], calibrationMatrix[9], calibrationMatrix[10], calibrationMatrix[11],
+                calibrationMatrix[12], calibrationMatrix[13], calibrationMatrix[14], calibrationMatrix[15]
+            ))
         }
     }
 
