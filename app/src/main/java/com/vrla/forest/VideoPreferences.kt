@@ -53,6 +53,15 @@ class VideoPreferences(context: Context) {
     }
 
     /**
+     * Clear video URI
+     */
+    fun clearVideoUri() {
+        prefs.edit()
+            .remove(KEY_VIDEO_URI)
+            .apply()
+    }
+
+    /**
      * Clear video folder URI
      */
     fun clearVideoFolderUri() {
