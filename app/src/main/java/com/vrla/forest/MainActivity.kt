@@ -825,10 +825,18 @@ Kalorien: ${calories}kcal"""
 
         // Check if video URI changed (compare as strings to avoid object comparison issues)
         val savedUri = videoPrefs.getSavedVideoUri()
+
+        // Debug logging
+        android.util.Log.d("MainActivity", "onResume - savedUri: $savedUri")
+        android.util.Log.d("MainActivity", "onResume - selectedVideoUri: $selectedVideoUri")
+        android.util.Log.d("MainActivity", "onResume - URIs equal as strings: ${savedUri?.toString() == selectedVideoUri?.toString()}")
+
         val videoChanged = savedUri != null &&
                           selectedVideoUri != null &&
                           savedUri.toString() != selectedVideoUri.toString() &&
                           isVRActive
+
+        android.util.Log.d("MainActivity", "onResume - videoChanged: $videoChanged")
 
         if (videoChanged) {
             // New video selected - reload and reset
