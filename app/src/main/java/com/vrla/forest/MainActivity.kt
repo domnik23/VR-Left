@@ -197,8 +197,8 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         // Setup video list RecyclerView
         videoRecyclerView.layoutManager = LinearLayoutManager(this)
 
-        // Settings button click
-        settingsButton.setOnClickListener {
+        // Make entire overlay container clickable to open settings
+        overlayContainer.setOnClickListener {
             val intent = Intent(this, SettingsActivity::class.java)
             startActivity(intent)
         }

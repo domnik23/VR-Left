@@ -57,7 +57,9 @@
     android:paddingEnd="6dp"
     android:paddingTop="2dp"
     android:paddingBottom="2dp"
-    android:background="@drawable/stats_overlay_background">
+    android:background="@drawable/stats_overlay_background"
+    android:clickable="true"
+    android:focusable="true">
 
     <TextView
         android:id="@+id/versionText"
@@ -65,7 +67,7 @@
         android:layout_height="wrap_content"
         android:text="v1.0"
         android:textColor="#AAAAAA"
-        android:textSize="10sp"
+        android:textSize="12sp"
         android:layout_marginEnd="6dp" />
 
     <TextView
@@ -74,7 +76,7 @@
         android:layout_height="wrap_content"
         android:text="Steps: 0"
         android:textColor="#FFFFFF"
-        android:textSize="11sp"
+        android:textSize="13sp"
         android:layout_marginEnd="6dp" />
 
     <TextView
@@ -83,7 +85,7 @@
         android:layout_height="wrap_content"
         android:text="0.3x"
         android:textColor="#FFFFFF"
-        android:textSize="11sp"
+        android:textSize="13sp"
         android:layout_marginEnd="6dp" />
 
     <TextView
@@ -92,7 +94,7 @@
         android:layout_height="wrap_content"
         android:text="00:00"
         android:textColor="#FFFFFF"
-        android:textSize="11sp"
+        android:textSize="13sp"
         android:layout_marginEnd="6dp" />
 
     <TextView
@@ -101,7 +103,7 @@
         android:layout_height="wrap_content"
         android:text="0.0km"
         android:textColor="#FFFFFF"
-        android:textSize="11sp"
+        android:textSize="13sp"
         android:layout_marginEnd="6dp" />
 
     <TextView
@@ -110,7 +112,7 @@
         android:layout_height="wrap_content"
         android:text="0kcal"
         android:textColor="#FFFFFF"
-        android:textSize="11sp"
+        android:textSize="13sp"
         android:layout_marginEnd="6dp" />
 
     <TextView
@@ -119,9 +121,8 @@
         android:layout_height="wrap_content"
         android:text="⋮"
         android:textColor="#FFFFFF"
-        android:textSize="20sp"
-        android:clickable="true"
-        android:focusable="true"
+        android:textSize="22sp"
+        android:layout_marginEnd="2dp"
         android:padding="2dp" />
 
 </LinearLayout>
