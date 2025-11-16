@@ -378,7 +378,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             val videoFileName = getVideoFileName(uri)
             if (videoFileName != null) {
                 timecodeLoader = TimecodeParameterLoader(this)
-                if (timecodeLoader!!.loadParametersForVideo(videoFileName)) {
+                if (timecodeLoader!!.loadParametersForVideo(videoFileName, uri)) {
                     android.util.Log.d("MainActivity", "Loaded timecode parameters for $videoFileName")
                     vrRenderer.setTimecodeLoader(timecodeLoader)
                 } else {

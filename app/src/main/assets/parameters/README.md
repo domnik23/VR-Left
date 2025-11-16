@@ -11,8 +11,11 @@ Parameter files must match the video filename with a `.json` extension:
 ## File Locations
 
 The app searches for parameter files in this order:
-1. **Internal storage**: `/Android/data/com.vrla.forest/files/parameters/`
-2. **Assets folder**: `assets/parameters/` (this folder)
+1. **Same folder as the video** - Most convenient! Just place the `.json` file next to your video file
+2. **Internal storage**: `/Android/data/com.vrla.forest/files/parameters/`
+3. **Assets folder**: `assets/parameters/` (this folder)
+
+**Recommended**: Place parameter files in the same folder as your videos for easy organization!
 
 ## JSON Structure
 
@@ -191,12 +194,12 @@ Celebrate achievements:
 
 ## Creating Your Own Parameter Files
 
-1. **Create a JSON file** matching your video name
-2. **Test locally** by placing it in the app's internal storage:
-   - Connect device to computer
-   - Navigate to: `Android/data/com.vrla.forest/files/parameters/`
-   - Copy your `.json` file there
-3. **Package with app** by placing it in `assets/parameters/` and rebuilding
+1. **Create a JSON file** matching your video name (e.g., `my_video.json` for `my_video.mp4`)
+2. **Place it with your video** - Simply put the `.json` file in the same folder as your video file (easiest method!)
+   - Example: If your video is at `/Movies/my_video.mp4`, place the parameters at `/Movies/my_video.json`
+3. **Alternative locations**:
+   - **Internal storage**: Copy to `Android/data/com.vrla.forest/files/parameters/` on your device
+   - **Package with app**: Place in `assets/parameters/` and rebuild the app
 
 ## Tips
 

@@ -1,6 +1,7 @@
 package com.vrla.forest
 
 import android.content.Context
+import android.net.Uri
 import android.util.Log
 import java.io.File
 import java.io.IOException
@@ -12,9 +13,10 @@ import java.io.IOException
  * Provides thread-safe access to current parameters based on video playback time.
  *
  * ## File Location
- * Parameter files should be placed in:
- * - Internal storage: `/Android/data/com.vrla.forest/files/parameters/`
- * - Assets folder: `assets/parameters/`
+ * Parameter files are searched in this order:
+ * 1. Same folder as the video file (if video URI is provided)
+ * 2. Internal storage: `/Android/data/com.vrla.forest/files/parameters/`
+ * 3. Assets folder: `assets/parameters/`
  *
  * ## File Naming Convention
  * Parameter files should match the video filename with `.json` extension:
@@ -23,7 +25,7 @@ import java.io.IOException
  * ## Usage Example
  * ```kotlin
  * val loader = TimecodeParameterLoader(context)
- * loader.loadParametersForVideo("forest_jog.mp4")
+ * loader.loadParametersForVideo("forest_jog.mp4", videoUri)
  *
  * // In rendering loop
  * val currentTimeMs = mediaPlayer.currentPosition.toLong()
@@ -48,19 +50,28 @@ class TimecodeParameterLoader(private val context: Context) {
      * Load parameter configuration for a specific video file
      *
      * Searches for parameter file in this order:
-     * 1. Internal storage: `/Android/data/com.vrla.forest/files/parameters/[videoname].json`
-     * 2. Assets folder: `assets/parameters/[videoname].json`
+     * 1. Same folder as the video file (if videoUri is provided)
+     * 2. Internal storage: `/Android/data/com.vrla.forest/files/parameters/[videoname].json`
+     * 3. Assets folder: `assets/parameters/[videoname].json`
      *
      * @param videoFileName Name of the video file (e.g., "forest_jog.mp4")
+     * @param videoUri Optional URI of the video file to search in its folder
      * @return true if parameters were loaded successfully, false otherwise
      */
-    fun loadParametersForVideo(videoFileName: String): Boolean {
+    fun loadParametersForVideo(videoFileName: String, videoUri: Uri? = null): Boolean {
         synchronized(lock) {
             // Extract base name without extension
             val baseName = videoFileName.substringBeforeLast(".")
             val paramFileName = "$baseName.json"
 
-            // Try loading from internal storage first
+            // Try loading from video folder first (if URI provided)
+            if (videoUri != null) {
+                if (tryLoadFromVideoFolder(videoUri, paramFileName)) {
+                    return true
+                }
+            }
+
+            // Try loading from internal storage
             val internalFile = File(context.getExternalFilesDir(PARAMETERS_DIR), paramFileName)
             if (internalFile.exists()) {
                 return loadFromFile(internalFile)
@@ -68,6 +79,56 @@ class TimecodeParameterLoader(private val context: Context) {
 
             // Fall back to assets
             return loadFromAssets(paramFileName)
+        }
+    }
+
+    /**
+     * Try to load parameter file from the same folder as the video
+     *
+     * @param videoUri URI of the video file
+     * @param paramFileName Name of the parameter file (e.g., "forest_jog.json")
+     * @return true if file was found and loaded successfully, false otherwise
+     */
+    private fun tryLoadFromVideoFolder(videoUri: Uri, paramFileName: String): Boolean {
+        return try {
+            // Try to load via ContentResolver for content:// URIs
+            if (videoUri.scheme == "content") {
+                // Use DocumentFile to access the video's parent directory
+                val videoDocFile = androidx.documentfile.provider.DocumentFile.fromSingleUri(context, videoUri)
+                if (videoDocFile != null && videoDocFile.parentFile != null) {
+                    val parentDir = videoDocFile.parentFile
+                    val paramFile = parentDir?.findFile(paramFileName)
+
+                    if (paramFile != null && paramFile.exists()) {
+                        // Read from URI
+                        val inputStream = context.contentResolver.openInputStream(paramFile.uri)
+                        if (inputStream != null) {
+                            val json = inputStream.bufferedReader().use { it.readText() }
+                            config = TimecodeConfig.fromJson(json)
+                            Log.i(TAG, "Loaded parameters from video folder: ${paramFile.uri}")
+                            Log.i(TAG, "Configuration contains ${config?.timecodes?.size ?: 0} timecode entries")
+                            return true
+                        }
+                    }
+                }
+            }
+
+            // Try to extract file path for file:// URIs
+            if (videoUri.scheme == "file") {
+                val videoFile = File(videoUri.path ?: return false)
+                val videoFolder = videoFile.parentFile
+                if (videoFolder != null && videoFolder.exists()) {
+                    val paramFile = File(videoFolder, paramFileName)
+                    if (paramFile.exists()) {
+                        return loadFromFile(paramFile)
+                    }
+                }
+            }
+
+            false
+        } catch (e: Exception) {
+            Log.w(TAG, "Could not load from video folder: ${e.message}")
+            false
         }
     }
 
