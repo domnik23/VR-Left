@@ -377,8 +377,11 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             // Try to load timecode parameters for this video
             val videoFileName = getVideoFileName(uri)
             if (videoFileName != null) {
+                // Get folder tree URI if available
+                val folderTreeUri = getVideoFolderUri()
+
                 timecodeLoader = TimecodeParameterLoader(this)
-                if (timecodeLoader!!.loadParametersForVideo(videoFileName, uri)) {
+                if (timecodeLoader!!.loadParametersForVideo(videoFileName, uri, folderTreeUri)) {
                     android.util.Log.d("MainActivity", "Loaded timecode parameters for $videoFileName")
                     vrRenderer.setTimecodeLoader(timecodeLoader)
                 } else {
@@ -746,5 +749,16 @@ Kalorien: ${calories}kcal"""
             android.util.Log.w("MainActivity", "Error extracting filename from URI: ${e.message}")
             null
         }
+    }
+
+    /**
+     * Get the video folder tree URI from SharedPreferences
+     *
+     * @return Tree URI of the video folder, or null if not set
+     */
+    private fun getVideoFolderUri(): Uri? {
+        val prefs = getSharedPreferences("VRLAPrefs", Context.MODE_PRIVATE)
+        val uriString = prefs.getString("video_folder_uri", null)
+        return uriString?.let { Uri.parse(it) }
     }
 }

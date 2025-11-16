@@ -53,14 +53,16 @@ class TimecodeParameterLoader(private val context: Context) {
      *
      * Searches for parameter file in this order:
      * 1. Same folder as the video file (if videoUri is provided)
-     * 2. Internal storage: `/Android/data/com.vrla.forest/files/parameters/[videoname].json`
-     * 3. Assets folder: `assets/parameters/[videoname].json`
+     * 2. Video folder tree (if folderTreeUri is provided)
+     * 3. Internal storage: `/Android/data/com.vrla.forest/files/parameters/[videoname].json`
+     * 4. Assets folder: `assets/parameters/[videoname].json`
      *
      * @param videoFileName Name of the video file (e.g., "forest_jog.mp4")
      * @param videoUri Optional URI of the video file to search in its folder
+     * @param folderTreeUri Optional tree URI of the folder containing videos
      * @return true if parameters were loaded successfully, false otherwise
      */
-    fun loadParametersForVideo(videoFileName: String, videoUri: Uri? = null): Boolean {
+    fun loadParametersForVideo(videoFileName: String, videoUri: Uri? = null, folderTreeUri: Uri? = null): Boolean {
         synchronized(lock) {
             // Extract base name without extension
             val baseName = videoFileName.substringBeforeLast(".")
@@ -69,6 +71,13 @@ class TimecodeParameterLoader(private val context: Context) {
             // Try loading from video folder first (if URI provided)
             if (videoUri != null) {
                 if (tryLoadFromVideoFolder(videoUri, paramFileName)) {
+                    return true
+                }
+            }
+
+            // Try loading from folder tree URI (if provided)
+            if (folderTreeUri != null) {
+                if (tryLoadFromFolderTree(folderTreeUri, paramFileName)) {
                     return true
                 }
             }
@@ -292,6 +301,78 @@ class TimecodeParameterLoader(private val context: Context) {
         } catch (e: Exception) {
             Log.w(TAG, "Error in MediaStore query: ${e.message}", e)
             return null
+        } finally {
+            cursor?.close()
+        }
+    }
+
+    /**
+     * Try to load parameter file from a folder tree URI
+     *
+     * This method is used when the user has selected a video folder via
+     * ACTION_OPEN_DOCUMENT_TREE, giving the app access to all files in that folder.
+     *
+     * @param folderTreeUri Tree URI of the folder containing videos
+     * @param paramFileName Name of the parameter file (e.g., "forest_jog.json")
+     * @return true if file was found and loaded successfully, false otherwise
+     */
+    private fun tryLoadFromFolderTree(folderTreeUri: Uri, paramFileName: String): Boolean {
+        var cursor: Cursor? = null
+        return try {
+            Log.d(TAG, "Searching for parameter file in folder tree: $folderTreeUri")
+
+            // Build URI for querying children of the tree
+            val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(
+                folderTreeUri,
+                DocumentsContract.getTreeDocumentId(folderTreeUri)
+            )
+
+            // Query all children to find the JSON file
+            cursor = context.contentResolver.query(
+                childrenUri,
+                arrayOf(
+                    DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+                    DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+                    DocumentsContract.Document.COLUMN_MIME_TYPE
+                ),
+                null,
+                null,
+                null
+            )
+
+            if (cursor != null) {
+                while (cursor.moveToNext()) {
+                    val displayName = cursor.getString(
+                        cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
+                    )
+
+                    // Check if this is the parameter file we're looking for
+                    if (displayName == paramFileName) {
+                        val documentId = cursor.getString(
+                            cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DOCUMENT_ID)
+                        )
+                        val jsonUri = DocumentsContract.buildDocumentUriUsingTree(folderTreeUri, documentId)
+
+                        Log.d(TAG, "Found parameter file in tree: $jsonUri")
+
+                        // Load the JSON file
+                        val inputStream = context.contentResolver.openInputStream(jsonUri)
+                        if (inputStream != null) {
+                            val json = inputStream.bufferedReader().use { it.readText() }
+                            config = TimecodeConfig.fromJson(json)
+                            Log.i(TAG, "Loaded parameters from folder tree: $jsonUri")
+                            Log.i(TAG, "Configuration contains ${config?.timecodes?.size ?: 0} timecode entries")
+                            return true
+                        }
+                    }
+                }
+            }
+
+            Log.d(TAG, "Parameter file not found in folder tree")
+            false
+        } catch (e: Exception) {
+            Log.w(TAG, "Error loading from folder tree: ${e.message}", e)
+            false
         } finally {
             cursor?.close()
         }
