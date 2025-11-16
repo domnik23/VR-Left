@@ -154,10 +154,10 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
      */
     private fun setupViewMatrices() {
         // Model matrix: Rotate to correct video orientation
-        // Uses AppConfig.videoRotation (set in SettingsActivity)
-        // Default: -90° (pitch down) to correct for camera pointing upward
+        // Base rotation: 90° (required due to sensor remapping for landscape orientation)
+        // User offset: AppConfig.videoRotation (set in SettingsActivity, default 0°)
         Matrix.setIdentityM(modelMatrix, 0)
-        Matrix.rotateM(modelMatrix, 0, AppConfig.videoRotation, 1f, 0f, 0f)  // Pitch rotation from settings
+        Matrix.rotateM(modelMatrix, 0, 90f + AppConfig.videoRotation, 1f, 0f, 0f)  // Base + user offset
 
         // View matrix approach for 360° video:
         // The sensor rotation describes how the phone is oriented.
