@@ -1,0 +1,15 @@
+{
+  "timecodes": [
+    {
+      "startTimeMs": 0,
+      "endTimeMs": 999999,
+      "overlay": {
+        "text": "TEST OVERLAY - Falls du das siehst, funktioniert es!",
+        "textSize": 18.0,
+        "textColor": "#FFFFFF",
+        "backgroundColor": "#40FF69B4",
+        "position": "center"
+      }
+    }
+  ]
+}

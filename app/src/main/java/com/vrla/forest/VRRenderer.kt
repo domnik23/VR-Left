@@ -72,12 +72,20 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
     private var isVideoReadyToStart = false
     private var surfaceCreated = false
     private var videoEnded = false
+    private var isReleased = false  // Track if renderer has been released
 
     var onVideoEnded: (() -> Unit)? = null
     var onVideoError: ((String) -> Unit)? = null
 
+    // Timecode parameter loading
+    private var timecodeLoader: TimecodeParameterLoader? = null
+    private var frameCounter = 0
+    private val updateInterval = 30 // Update timecode parameters every 30 frames (~0.5 seconds at 60fps)
+
     override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {
-        android.util.Log.d("VRRenderer", "onSurfaceCreated")
+        // Reset released flag if surface is being recreated
+        isReleased = false
+
         GLES30.glClearColor(1f, 0f, 0f, 1f)  // ROT für Debug
         GLES30.glEnable(GLES30.GL_DEPTH_TEST)
 
@@ -93,21 +101,27 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
         texOffsetHandle = GLES30.glGetUniformLocation(program, "uTexOffsetU")
         texScaleHandle = GLES30.glGetUniformLocation(program, "uTexScaleX")
 
+        // Release old SurfaceTexture to prevent memory leak
+        surfaceTexture?.release()
+
         surfaceTexture = SurfaceTexture(textureId).apply {
             setOnFrameAvailableListener(this@VRRenderer)
         }
 
         surfaceCreated = true
-        android.util.Log.d("VRRenderer", "Surface created, ready for video")
 
-        // Wenn Video starten angefordert wurde, jetzt starten
-        if (isVideoReadyToStart) {
+        // Check if we need to start a new video or just update existing MediaPlayer's surface
+        if (mediaPlayer != null) {
+            // MediaPlayer already exists (e.g., returning from Settings)
+            // Just update its surface instead of creating a new one
+            mediaPlayer?.setSurface(Surface(surfaceTexture))
+        } else if (isVideoReadyToStart) {
+            // No MediaPlayer yet - start video from scratch
             startVideoNow()
         }
     }
 
     override fun onSurfaceChanged(gl: GL10?, width: Int, height: Int) {
-        android.util.Log.d("VRRenderer", "onSurfaceChanged: $width x $height")
         screenWidth = width
         screenHeight = height
         GLES30.glViewport(0, 0, width, height)
@@ -116,11 +130,24 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
     }
 
     override fun onDrawFrame(gl: GL10?) {
+        // Safety check: Don't render if released
+        if (isReleased || surfaceTexture == null) {
+            return
+        }
+
         GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT or GLES30.GL_DEPTH_BUFFER_BIT)
 
         // Always update texture (safe to call even if no new frame available)
         // This prevents video freezing issues caused by missed onFrameAvailable callbacks
-        surfaceTexture?.updateTexImage()
+        try {
+            surfaceTexture?.updateTexImage()
+        } catch (e: Exception) {
+            // Context may have been lost during lifecycle transitions - silently ignore
+            return
+        }
+
+        // Update timecode parameters periodically
+        updateTimecodeParameters()
 
         GLES30.glUseProgram(program)
         setupViewMatrices()
@@ -154,9 +181,9 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
      */
     private fun setupViewMatrices() {
         // Model matrix: Rotate to correct video orientation
-        // Video was pointing at sky, rotate 90° down (around X-axis)
+        // Uses videoRotation setting from AppConfig (adjustable in Settings)
         Matrix.setIdentityM(modelMatrix, 0)
-        Matrix.rotateM(modelMatrix, 0, -90f, 1f, 0f, 0f)  // Pitch down 90°
+        Matrix.rotateM(modelMatrix, 0, AppConfig.videoRotation, 1f, 0f, 0f)
 
         // View matrix approach for 360° video:
         // The sensor rotation describes how the phone is oriented.
@@ -169,16 +196,23 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
             Matrix.setIdentityM(tempMatrix, 0)
         }
 
-        // Left eye: Rotation, then IPD offset in camera space
-        // Matrix multiplication: viewMatrix = translation * rotation
-        Matrix.setIdentityM(viewMatrixLeft, 0)
-        Matrix.translateM(viewMatrixLeft, 0, -AppConfig.ipd / 2f, 0f, 0f)
-        Matrix.multiplyMM(viewMatrixLeft, 0, viewMatrixLeft, 0, tempMatrix, 0)
+        // Create view matrices for left and right eye with IPD offset
+        createEyeViewMatrix(viewMatrixLeft, tempMatrix, -AppConfig.ipd / 2f)
+        createEyeViewMatrix(viewMatrixRight, tempMatrix, AppConfig.ipd / 2f)
+    }
 
-        // Right eye: Rotation, then IPD offset in camera space
-        Matrix.setIdentityM(viewMatrixRight, 0)
-        Matrix.translateM(viewMatrixRight, 0, AppConfig.ipd / 2f, 0f, 0f)
-        Matrix.multiplyMM(viewMatrixRight, 0, viewMatrixRight, 0, tempMatrix, 0)
+    /**
+     * Creates a view matrix for one eye by applying IPD offset and rotation
+     * Matrix multiplication: viewMatrix = translation * rotation
+     */
+    private fun createEyeViewMatrix(
+        viewMatrix: FloatArray,
+        rotationMatrix: FloatArray,
+        ipdOffset: Float
+    ) {
+        Matrix.setIdentityM(viewMatrix, 0)
+        Matrix.translateM(viewMatrix, 0, ipdOffset, 0f, 0f)
+        Matrix.multiplyMM(viewMatrix, 0, viewMatrix, 0, rotationMatrix, 0)
     }
 
     private fun drawSphere(viewMatrix: FloatArray, texOffsetU: Float, texScaleX: Float) {
@@ -323,91 +357,99 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
     }
 
     fun startVideo() {
-        android.util.Log.d("VRRenderer", "startVideo() requested")
         isVideoReadyToStart = true
 
         if (surfaceCreated && surfaceTexture != null) {
             startVideoNow()
-        } else {
-            android.util.Log.d("VRRenderer", "Surface not ready yet, will start when ready")
         }
     }
 
     private fun startVideoNow() {
-        android.util.Log.d("VRRenderer", "startVideoNow() called")
+        if (!validateMediaSetup()) return
 
+        try {
+            createAndConfigureMediaPlayer()
+            setBackgroundColor()
+        } catch (e: Exception) {
+            handleMediaError(e)
+        }
+    }
+
+    private fun validateMediaSetup(): Boolean {
         if (surfaceTexture == null) {
-            android.util.Log.e("VRRenderer", "SurfaceTexture is STILL NULL!")
+            android.util.Log.e("VRRenderer", "SurfaceTexture is NULL")
             onVideoError?.invoke("Interner Fehler: Surface nicht bereit")
-            return
+            return false
         }
 
         if (videoUri == null) {
-            android.util.Log.e("VRRenderer", "Video URI is NULL!")
+            android.util.Log.e("VRRenderer", "Video URI is NULL")
             onVideoError?.invoke("Kein Video ausgewählt")
-            return
+            return false
         }
 
-        android.util.Log.d("VRRenderer", "SurfaceTexture OK, creating MediaPlayer with URI: $videoUri")
+        return true
+    }
+
+    private fun createAndConfigureMediaPlayer() {
         mediaPlayer?.release()
-
-        try {
-            // NEW METHOD - using external video URI
-            mediaPlayer = MediaPlayer().apply {
-                setDataSource(context, videoUri!!)
-                setSurface(Surface(surfaceTexture))
-
-                // Set error listener
-                setOnErrorListener { _, what, extra ->
-                    android.util.Log.e("VRRenderer", "MediaPlayer error: what=$what extra=$extra")
-                    val errorMsg = when (what) {
-                        MediaPlayer.MEDIA_ERROR_SERVER_DIED -> "Media Server abgestürzt"
-                        MediaPlayer.MEDIA_ERROR_UNKNOWN -> "Unbekannter Fehler beim Abspielen"
-                        else -> "Fehler beim Video-Abspielen (Code: $what)"
-                    }
-                    onVideoError?.invoke(errorMsg)
-                    true
-                }
-
-                prepare()
-                isLooping = false  // Video plays once, then shows finish flag
-                playbackParams = playbackParams.setSpeed(playbackSpeed)
-
-                // Set volume from AppConfig
-                setVolume(AppConfig.videoVolume, AppConfig.videoVolume)
-
-                // Set completion listener
-                setOnCompletionListener {
-                    android.util.Log.d("VRRenderer", "Video completed!")
-                    videoEnded = true
-                    onVideoEnded?.invoke()
-                }
-
-                start()
-            }
-
-            videoEnded = false
-
-            // Hintergrund auf schwarz ändern sobald Video läuft
-            GLES30.glClearColor(0f, 0f, 0f, 1f)
-
-            android.util.Log.d("VRRenderer", "MediaPlayer started successfully")
-        } catch (e: java.io.FileNotFoundException) {
-            android.util.Log.e("VRRenderer", "Video file not found: ${e.message}")
-            onVideoError?.invoke("Video nicht gefunden. Bitte wählen Sie ein anderes Video.")
-        } catch (e: java.io.IOException) {
-            android.util.Log.e("VRRenderer", "IO error loading video: ${e.message}")
-            onVideoError?.invoke("Video konnte nicht geladen werden. Datei beschädigt?")
-        } catch (e: Exception) {
-            android.util.Log.e("VRRenderer", "Error starting video: ${e.message}")
-            e.printStackTrace()
-            onVideoError?.invoke("Fehler beim Video-Start: ${e.message}")
+        mediaPlayer = MediaPlayer().apply {
+            setDataSource(context, videoUri!!)
+            setSurface(Surface(surfaceTexture))
+            setupMediaListeners(this)
+            prepare()
+            isLooping = false
+            playbackParams = playbackParams.setSpeed(playbackSpeed)
+            setVolume(AppConfig.videoVolume, AppConfig.videoVolume)
+            start()
         }
+
+        videoEnded = false
+    }
+
+    private fun setupMediaListeners(player: MediaPlayer) {
+        player.setOnErrorListener { _, what, extra ->
+            android.util.Log.e("VRRenderer", "MediaPlayer error: what=$what extra=$extra")
+            val errorMsg = when (what) {
+                MediaPlayer.MEDIA_ERROR_SERVER_DIED -> "Media Server abgestürzt"
+                MediaPlayer.MEDIA_ERROR_UNKNOWN -> "Unbekannter Fehler beim Abspielen"
+                else -> "Fehler beim Video-Abspielen (Code: $what)"
+            }
+            onVideoError?.invoke(errorMsg)
+            true
+        }
+
+        player.setOnCompletionListener {
+            videoEnded = true
+            onVideoEnded?.invoke()
+        }
+    }
+
+    private fun setBackgroundColor() {
+        GLES30.glClearColor(0f, 0f, 0f, 1f)
+    }
+
+    private fun handleMediaError(e: Exception) {
+        val errorMsg = when (e) {
+            is java.io.FileNotFoundException -> {
+                android.util.Log.e("VRRenderer", "Video file not found: ${e.message}")
+                "Video nicht gefunden. Bitte wählen Sie ein anderes Video."
+            }
+            is java.io.IOException -> {
+                android.util.Log.e("VRRenderer", "IO error loading video: ${e.message}")
+                "Video konnte nicht geladen werden. Datei beschädigt?"
+            }
+            else -> {
+                android.util.Log.e("VRRenderer", "Error starting video: ${e.message}")
+                e.printStackTrace()
+                "Fehler beim Video-Start: ${e.message}"
+            }
+        }
+        onVideoError?.invoke(errorMsg)
     }
 
     fun setVideoUri(uri: Uri) {
         videoUri = uri
-        android.util.Log.d("VRRenderer", "Video URI set to: $uri")
     }
 
     fun setPlaybackSpeed(speed: Float) {
@@ -501,7 +543,6 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
             // This will make current orientation the new "forward" direction
             Matrix.transposeM(calibrationMatrix, 0, headRotationMatrix, 0)
             isCalibrated = true
-            android.util.Log.d("VRRenderer", "Orientation calibrated")
         }
     }
 
@@ -511,7 +552,6 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
     }
 
     fun restartVideo() {
-        android.util.Log.d("VRRenderer", "Restarting video from beginning")
         mediaPlayer?.let {
             try {
                 it.seekTo(0)
@@ -526,19 +566,168 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
         }
     }
 
+    /**
+     * Load a completely new video
+     *
+     * Releases the current MediaPlayer and creates a new one with the current videoUri.
+     * Used when switching to a different video file.
+     */
+    fun loadNewVideo() {
+        if (surfaceTexture == null) {
+            android.util.Log.e("VRRenderer", "Cannot load new video - SurfaceTexture not ready")
+            onVideoError?.invoke("Interner Fehler: Surface nicht bereit")
+            return
+        }
+
+        if (videoUri == null) {
+            android.util.Log.e("VRRenderer", "Cannot load new video - URI is null")
+            onVideoError?.invoke("Kein Video ausgewählt")
+            return
+        }
+
+        try {
+            // Release old MediaPlayer
+            mediaPlayer?.release()
+
+            // Create new MediaPlayer with new video
+            mediaPlayer = MediaPlayer().apply {
+                setDataSource(context, videoUri!!)
+                setSurface(Surface(surfaceTexture))
+                setupMediaListeners(this)
+                prepare()
+                isLooping = false
+                playbackParams = playbackParams.setSpeed(playbackSpeed)
+                setVolume(AppConfig.videoVolume, AppConfig.videoVolume)
+                start()
+            }
+
+            videoEnded = false
+        } catch (e: Exception) {
+            handleMediaError(e)
+        }
+    }
+
     fun updateVolume() {
         mediaPlayer?.setVolume(AppConfig.videoVolume, AppConfig.videoVolume)
     }
 
     fun release() {
-        mediaPlayer?.release()
+        if (isReleased) {
+            return  // Already released
+        }
+
+        isReleased = true
+
+        // Release MediaPlayer first (it uses the SurfaceTexture)
+        try {
+            mediaPlayer?.release()
+        } catch (e: Exception) {
+            android.util.Log.w("VRRenderer", "Error releasing MediaPlayer: ${e.message}")
+        }
         mediaPlayer = null
-        surfaceTexture?.release()
+
+        // Then release SurfaceTexture
+        try {
+            surfaceTexture?.release()
+        } catch (e: Exception) {
+            android.util.Log.w("VRRenderer", "Error releasing SurfaceTexture: ${e.message}")
+        }
         surfaceTexture = null
+    }
+
+    /**
+     * Get current playback position in milliseconds
+     */
+    fun getCurrentPosition(): Int {
+        return mediaPlayer?.currentPosition ?: 0
+    }
+
+    /**
+     * Seek to specific position in milliseconds
+     */
+    fun seekTo(positionMs: Int) {
+        mediaPlayer?.seekTo(positionMs)
+    }
+
+    /**
+     * Pause video playback
+     */
+    fun pause() {
+        if (!isReleased) {
+            mediaPlayer?.pause()
+        }
+    }
+
+    /**
+     * Resume video playback
+     */
+    fun resume() {
+        if (!isReleased) {
+            mediaPlayer?.start()
+        }
     }
 
     fun setScreenDimensions(width: Int, height: Int) {
         screenWidth = width
         screenHeight = height
+    }
+
+    /**
+     * Set the timecode parameter loader
+     *
+     * @param loader TimecodeParameterLoader instance to use for dynamic parameters
+     */
+    fun setTimecodeLoader(loader: TimecodeParameterLoader?) {
+        timecodeLoader = loader
+    }
+
+    /**
+     * Update video parameters based on current playback time
+     *
+     * Called periodically from onDrawFrame to apply timecode-based parameter changes.
+     * Updates are throttled to every N frames to reduce overhead.
+     */
+    private fun updateTimecodeParameters() {
+        // Safety check
+        if (isReleased || mediaPlayer == null) {
+            return
+        }
+
+        // Only update every N frames to reduce overhead
+        frameCounter++
+        if (frameCounter < updateInterval) {
+            return
+        }
+        frameCounter = 0
+
+        // Get current video time
+        val currentTimeMs = try {
+            mediaPlayer?.currentPosition?.toLong() ?: 0L
+        } catch (e: Exception) {
+            android.util.Log.w("VRRenderer", "Error getting current position: ${e.message}")
+            0L
+        }
+
+        // Update timecode parameters
+        timecodeLoader?.let { loader ->
+            if (loader.updateForTime(currentTimeMs)) {
+                // Parameters were updated - apply volume change if needed
+                val params = loader.getCurrentParameters()
+                params?.videoVolume?.let { volume ->
+                    mediaPlayer?.setVolume(volume, volume)
+                }
+            }
+        }
+    }
+
+    /**
+     * Get current overlay configuration based on video time
+     *
+     * Can be called from MainActivity to update overlay UI
+     *
+     * @return Current OverlayConfig or null if no overlay active
+     */
+    fun getCurrentOverlay(): OverlayConfig? {
+        return timecodeLoader?.getCurrentOverlay()
     }
 }

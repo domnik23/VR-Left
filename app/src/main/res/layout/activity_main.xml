@@ -9,16 +9,57 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
+    <!-- Info Box with Instructions -->
+    <LinearLayout
+        android:id="@+id/infoBox"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:layout_marginBottom="40dp"
+        android:orientation="vertical"
+        android:padding="6dp"
+        android:background="#80000000"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/infoBoxTitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Anleitung"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:gravity="center"
+            android:paddingBottom="4dp" />
+
+        <TextView
+            android:id="@+id/infoBoxText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="1. Öffne Einstellungen (⋮)\n2. Wähle 'Video-Ordner wählen'\n3. Wähle Ordner mit Videos\n4. Wähle Video aus Liste"
+            android:textColor="#FFFFFF"
+            android:textSize="12sp"
+            android:gravity="start"
+            android:padding="4dp"
+            android:lineSpacingExtra="2dp" />
+
+    </LinearLayout>
+
    <LinearLayout
     android:id="@+id/overlayContainer"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
     android:layout_gravity="top|center_horizontal"
-    android:layout_marginTop="20dp"
+    android:layout_marginTop="2dp"
     android:orientation="horizontal"
-    android:gravity="center"
-    android:padding="12dp"
-    android:background="#60000000">
+    android:gravity="center_vertical"
+    android:paddingStart="6dp"
+    android:paddingEnd="6dp"
+    android:paddingTop="2dp"
+    android:paddingBottom="2dp"
+    android:background="@drawable/stats_overlay_background"
+    android:clickable="true"
+    android:focusable="true">
 
     <TextView
         android:id="@+id/versionText"
@@ -27,7 +68,7 @@
         android:text="v1.0"
         android:textColor="#AAAAAA"
         android:textSize="12sp"
-        android:layout_marginEnd="16dp" />
+        android:layout_marginEnd="6dp" />
 
     <TextView
         android:id="@+id/stepCountText"
@@ -35,8 +76,8 @@
         android:layout_height="wrap_content"
         android:text="Steps: 0"
         android:textColor="#FFFFFF"
-        android:textSize="14sp"
-        android:layout_marginEnd="12dp" />
+        android:textSize="13sp"
+        android:layout_marginEnd="6dp" />
 
     <TextView
         android:id="@+id/speedText"
@@ -44,8 +85,8 @@
         android:layout_height="wrap_content"
         android:text="0.3x"
         android:textColor="#FFFFFF"
-        android:textSize="14sp"
-        android:layout_marginEnd="12dp" />
+        android:textSize="13sp"
+        android:layout_marginEnd="6dp" />
 
     <TextView
         android:id="@+id/timeText"
@@ -53,8 +94,8 @@
         android:layout_height="wrap_content"
         android:text="00:00"
         android:textColor="#FFFFFF"
-        android:textSize="14sp"
-        android:layout_marginEnd="12dp" />
+        android:textSize="13sp"
+        android:layout_marginEnd="6dp" />
 
     <TextView
         android:id="@+id/distanceText"
@@ -62,8 +103,8 @@
         android:layout_height="wrap_content"
         android:text="0.0km"
         android:textColor="#FFFFFF"
-        android:textSize="14sp"
-        android:layout_marginEnd="12dp" />
+        android:textSize="13sp"
+        android:layout_marginEnd="6dp" />
 
     <TextView
         android:id="@+id/caloriesText"
@@ -71,8 +112,8 @@
         android:layout_height="wrap_content"
         android:text="0kcal"
         android:textColor="#FFFFFF"
-        android:textSize="14sp"
-        android:layout_marginEnd="16dp" />
+        android:textSize="13sp"
+        android:layout_marginEnd="6dp" />
 
     <TextView
         android:id="@+id/settingsButton"
@@ -80,12 +121,22 @@
         android:layout_height="wrap_content"
         android:text="⋮"
         android:textColor="#FFFFFF"
-        android:textSize="24sp"
-        android:clickable="true"
-        android:focusable="true"
-        android:padding="8dp" />
+        android:textSize="22sp"
+        android:layout_marginEnd="2dp"
+        android:padding="2dp" />
 
 </LinearLayout>
+
+    <TextView
+        android:id="@+id/timecodeOverlayText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:background="@drawable/timecode_overlay_background"
+        android:textColor="#FF69B4"
+        android:textSize="13sp"
+        android:textAlignment="center"
+        android:visibility="gone" />
 
     <LinearLayout
         android:id="@+id/finishOverlay"
@@ -95,7 +146,7 @@
         android:orientation="vertical"
         android:gravity="center"
         android:padding="32dp"
-        android:background="#CC000000"
+        android:background="#80000000"
         android:visibility="gone">
 
         <TextView
@@ -147,5 +198,8 @@
         </LinearLayout>
 
     </LinearLayout>
+
+    <!-- Video Selection List Overlay -->
+    <include layout="@layout/video_list_overlay" />
 
 </FrameLayout>

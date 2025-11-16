@@ -2,13 +2,14 @@
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#000000">
+    android:background="#121212"
+    android:fillViewport="true">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="24dp">
+        android:padding="12dp">
 
         <!-- Header -->
         <TextView
@@ -16,358 +17,465 @@
             android:layout_height="wrap_content"
             android:text="Einstellungen"
             android:textColor="#FFFFFF"
-            android:textSize="28sp"
+            android:textSize="24sp"
             android:textStyle="bold"
-            android:layout_marginBottom="24dp" />
+            android:layout_marginBottom="12dp"
+            android:layout_marginStart="4dp" />
 
         <!-- Video Section -->
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="🎥 Video"
-            android:textColor="#AAAAAA"
-            android:textSize="16sp"
-            android:layout_marginBottom="12dp" />
-
-        <Button
-            android:id="@+id/selectVideoButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Video auswählen"
-            android:textColor="#FFFFFF"
-            android:backgroundTint="#333333"
-            android:layout_marginBottom="8dp" />
-
-        <TextView
-            android:id="@+id/currentVideoText"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Aktuell: Kein Video"
-            android:textColor="#888888"
-            android:textSize="12sp"
-            android:layout_marginBottom="16dp" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Video Rotation"
-            android:textColor="#FFFFFF"
-            android:textSize="14sp" />
-
-        <Spinner
-            android:id="@+id/videoRotationSpinner"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:background="#333333"
-            android:padding="12dp"
-            android:layout_marginBottom="16dp" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Video Lautstärke"
-            android:textColor="#FFFFFF"
-            android:textSize="14sp" />
-
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:layout_marginBottom="24dp">
-
-            <SeekBar
-                android:id="@+id/volumeSeekBar"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:max="100"
-                android:progress="50" />
+            android:orientation="vertical"
+            android:background="@drawable/settings_card_background"
+            android:padding="16dp"
+            android:layout_marginBottom="8dp">
 
             <TextView
-                android:id="@+id/volumeValueText"
-                android:layout_width="50dp"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="50%"
+                android:text="🎥 Video"
+                android:textColor="#BB86FC"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:layout_marginBottom="12dp" />
+
+            <Button
+                android:id="@+id/selectVideoFolderButton"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:text="Video-Ordner wählen"
                 android:textColor="#FFFFFF"
-                android:textAlignment="textEnd" />
+                android:backgroundTint="#2979FF"
+                android:layout_marginBottom="6dp"
+                android:textAllCaps="false" />
+
+            <TextView
+                android:id="@+id/currentFolderText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Kein Ordner ausgewählt"
+                android:textColor="#888888"
+                android:textSize="11sp"
+                android:layout_marginBottom="12dp"
+                android:layout_marginStart="4dp" />
+
+            <Button
+                android:id="@+id/selectVideoButton"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:text="Einzelnes Video wählen"
+                android:textColor="#AAAAAA"
+                android:background="@drawable/outlined_button"
+                android:layout_marginBottom="6dp"
+                android:textAllCaps="false" />
+
+            <TextView
+                android:id="@+id/currentVideoText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Aktuell: Kein Video"
+                android:textColor="#888888"
+                android:textSize="11sp"
+                android:layout_marginBottom="12dp"
+                android:layout_marginStart="4dp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Video Rotation"
+                android:textColor="#FFFFFF"
+                android:textSize="12sp"
+                android:layout_marginBottom="4dp" />
+
+            <Spinner
+                android:id="@+id/videoRotationSpinner"
+                android:layout_width="match_parent"
+                android:layout_height="40dp"
+                android:background="#2A2A2A"
+                android:padding="8dp"
+                android:layout_marginBottom="12dp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Video Lautstärke"
+                android:textColor="#FFFFFF"
+                android:textSize="12sp"
+                android:layout_marginBottom="4dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <SeekBar
+                    android:id="@+id/volumeSeekBar"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:max="100"
+                    android:progress="50" />
+
+                <TextView
+                    android:id="@+id/volumeValueText"
+                    android:layout_width="45dp"
+                    android:layout_height="wrap_content"
+                    android:text="50%"
+                    android:textColor="#FFFFFF"
+                    android:textSize="12sp"
+                    android:textAlignment="textEnd" />
+            </LinearLayout>
         </LinearLayout>
 
         <!-- Display Section -->
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="👁️ Anzeige"
-            android:textColor="#AAAAAA"
-            android:textSize="16sp"
-            android:layout_marginBottom="12dp" />
-
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:layout_marginBottom="16dp">
+            android:orientation="vertical"
+            android:background="@drawable/settings_card_background"
+            android:padding="16dp"
+            android:layout_marginBottom="8dp">
 
             <TextView
-                android:layout_width="0dp"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Stereo Modus (3D)"
-                android:textColor="#FFFFFF"
-                android:textSize="14sp" />
+                android:text="👁️ Anzeige"
+                android:textColor="#03DAC6"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:layout_marginBottom="12dp" />
 
-            <androidx.appcompat.widget.SwitchCompat
-                android:id="@+id/stereoSwitch"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content" />
-        </LinearLayout>
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Augenabstand (IPD)"
-            android:textColor="#FFFFFF"
-            android:textSize="14sp" />
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:layout_marginBottom="24dp">
-
-            <SeekBar
-                android:id="@+id/ipdSeekBar"
-                android:layout_width="0dp"
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:max="30"
-                android:progress="14" />
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="12dp">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Stereo Modus (3D)"
+                    android:textColor="#FFFFFF"
+                    android:textSize="12sp" />
+
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/stereoSwitch"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" />
+            </LinearLayout>
 
             <TextView
-                android:id="@+id/ipdValueText"
-                android:layout_width="70dp"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="64mm"
+                android:text="Augenabstand (IPD)"
                 android:textColor="#FFFFFF"
-                android:textAlignment="textEnd" />
-        </LinearLayout>
+                android:textSize="12sp"
+                android:layout_marginBottom="4dp" />
 
-        <!-- Fitness Section -->
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="🏃 Fitness Tracking"
-            android:textColor="#AAAAAA"
-            android:textSize="16sp"
-            android:layout_marginBottom="12dp" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Schrittlänge"
-            android:textColor="#FFFFFF"
-            android:textSize="14sp" />
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:layout_marginBottom="16dp">
-
-            <SeekBar
-                android:id="@+id/strideLengthSeekBar"
-                android:layout_width="0dp"
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:max="50"
-                android:progress="25" />
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
 
-            <TextView
-                android:id="@+id/strideLengthValueText"
-                android:layout_width="70dp"
-                android:layout_height="wrap_content"
-                android:text="0.75m"
-                android:textColor="#FFFFFF"
-                android:textAlignment="textEnd" />
-        </LinearLayout>
+                <SeekBar
+                    android:id="@+id/ipdSeekBar"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:max="30"
+                    android:progress="14" />
 
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Kalorien pro km"
-            android:textColor="#FFFFFF"
-            android:textSize="14sp" />
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:layout_marginBottom="24dp">
-
-            <SeekBar
-                android:id="@+id/caloriesSeekBar"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:max="100"
-                android:progress="60" />
-
-            <TextView
-                android:id="@+id/caloriesValueText"
-                android:layout_width="70dp"
-                android:layout_height="wrap_content"
-                android:text="60 kcal"
-                android:textColor="#FFFFFF"
-                android:textAlignment="textEnd" />
+                <TextView
+                    android:id="@+id/ipdValueText"
+                    android:layout_width="55dp"
+                    android:layout_height="wrap_content"
+                    android:text="64mm"
+                    android:textColor="#FFFFFF"
+                    android:textSize="12sp"
+                    android:textAlignment="textEnd" />
+            </LinearLayout>
         </LinearLayout>
 
         <!-- Speed Section -->
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="⚡ Geschwindigkeit"
-            android:textColor="#AAAAAA"
-            android:textSize="16sp"
-            android:layout_marginBottom="12dp" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Min Speed (keine Bewegung) • 0.0 - 1.0x"
-            android:textColor="#FFFFFF"
-            android:textSize="14sp" />
-
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:layout_marginBottom="16dp">
-
-            <SeekBar
-                android:id="@+id/minSpeedSeekBar"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:max="100"
-                android:progress="40" />
+            android:orientation="vertical"
+            android:background="@drawable/settings_card_background"
+            android:padding="16dp"
+            android:layout_marginBottom="8dp">
 
             <TextView
-                android:id="@+id/minSpeedValueText"
-                android:layout_width="70dp"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="0.4x"
+                android:text="⚡ Geschwindigkeit"
+                android:textColor="#FFC107"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:layout_marginBottom="12dp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Min (keine Bewegung)"
                 android:textColor="#FFFFFF"
-                android:textAlignment="textEnd" />
+                android:textSize="12sp"
+                android:layout_marginBottom="4dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="12dp">
+
+                <SeekBar
+                    android:id="@+id/minSpeedSeekBar"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:max="100"
+                    android:progress="40" />
+
+                <TextView
+                    android:id="@+id/minSpeedValueText"
+                    android:layout_width="55dp"
+                    android:layout_height="wrap_content"
+                    android:text="0.4x"
+                    android:textColor="#FFFFFF"
+                    android:textSize="12sp"
+                    android:textAlignment="textEnd" />
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Min (beim Gehen)"
+                android:textColor="#FFFFFF"
+                android:textSize="12sp"
+                android:layout_marginBottom="4dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="12dp">
+
+                <SeekBar
+                    android:id="@+id/minSpeedMovingSeekBar"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:max="100"
+                    android:progress="70" />
+
+                <TextView
+                    android:id="@+id/minSpeedMovingValueText"
+                    android:layout_width="55dp"
+                    android:layout_height="wrap_content"
+                    android:text="0.7x"
+                    android:textColor="#FFFFFF"
+                    android:textSize="12sp"
+                    android:textAlignment="textEnd" />
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Max (schnelles Joggen)"
+                android:textColor="#FFFFFF"
+                android:textSize="12sp"
+                android:layout_marginBottom="4dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <SeekBar
+                    android:id="@+id/maxSpeedSeekBar"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:max="100"
+                    android:progress="50" />
+
+                <TextView
+                    android:id="@+id/maxSpeedValueText"
+                    android:layout_width="55dp"
+                    android:layout_height="wrap_content"
+                    android:text="1.5x"
+                    android:textColor="#FFFFFF"
+                    android:textSize="12sp"
+                    android:textAlignment="textEnd" />
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Beschleunigung"
+                android:textColor="#FFFFFF"
+                android:textSize="12sp"
+                android:layout_marginBottom="4dp"
+                android:layout_marginTop="12dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <SeekBar
+                    android:id="@+id/smoothingSeekBar"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:max="100"
+                    android:progress="30" />
+
+                <TextView
+                    android:id="@+id/smoothingValueText"
+                    android:layout_width="55dp"
+                    android:layout_height="wrap_content"
+                    android:text="Normal"
+                    android:textColor="#FFFFFF"
+                    android:textSize="12sp"
+                    android:textAlignment="textEnd" />
+            </LinearLayout>
         </LinearLayout>
 
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Min Speed (beim Gehen) • 0.0 - 1.0x"
-            android:textColor="#FFFFFF"
-            android:textSize="14sp" />
-
+        <!-- Fitness Section -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:layout_marginBottom="16dp">
-
-            <SeekBar
-                android:id="@+id/minSpeedMovingSeekBar"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:max="100"
-                android:progress="70" />
+            android:orientation="vertical"
+            android:background="@drawable/settings_card_background"
+            android:padding="16dp"
+            android:layout_marginBottom="8dp">
 
             <TextView
-                android:id="@+id/minSpeedMovingValueText"
-                android:layout_width="70dp"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="0.7x"
-                android:textColor="#FFFFFF"
-                android:textAlignment="textEnd" />
-        </LinearLayout>
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Max Speed (schnelles Joggen) • 1.0 - 2.0x"
-            android:textColor="#FFFFFF"
-            android:textSize="14sp" />
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:layout_marginBottom="24dp">
-
-            <SeekBar
-                android:id="@+id/maxSpeedSeekBar"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:max="100"
-                android:progress="50" />
+                android:text="🏃 Fitness Tracking"
+                android:textColor="#CF6679"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:layout_marginBottom="12dp" />
 
             <TextView
-                android:id="@+id/maxSpeedValueText"
-                android:layout_width="70dp"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="1.5x"
+                android:text="Schrittlänge"
                 android:textColor="#FFFFFF"
-                android:textAlignment="textEnd" />
+                android:textSize="12sp"
+                android:layout_marginBottom="4dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="12dp">
+
+                <SeekBar
+                    android:id="@+id/strideLengthSeekBar"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:max="50"
+                    android:progress="25" />
+
+                <TextView
+                    android:id="@+id/strideLengthValueText"
+                    android:layout_width="55dp"
+                    android:layout_height="wrap_content"
+                    android:text="0.75m"
+                    android:textColor="#FFFFFF"
+                    android:textSize="12sp"
+                    android:textAlignment="textEnd" />
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Kalorien pro km"
+                android:textColor="#FFFFFF"
+                android:textSize="12sp"
+                android:layout_marginBottom="4dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <SeekBar
+                    android:id="@+id/caloriesSeekBar"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:max="100"
+                    android:progress="60" />
+
+                <TextView
+                    android:id="@+id/caloriesValueText"
+                    android:layout_width="55dp"
+                    android:layout_height="wrap_content"
+                    android:text="60 kcal"
+                    android:textColor="#FFFFFF"
+                    android:textSize="12sp"
+                    android:textAlignment="textEnd" />
+            </LinearLayout>
         </LinearLayout>
 
         <!-- Info Section -->
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="ℹ️ Info"
-            android:textColor="#AAAAAA"
-            android:textSize="16sp"
-            android:layout_marginBottom="12dp" />
-
         <TextView
             android:id="@+id/appVersionText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Version 1.0"
-            android:textColor="#666666"
-            android:textSize="12sp"
-            android:layout_marginBottom="24dp" />
+            android:textColor="#555555"
+            android:textSize="11sp"
+            android:gravity="center"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="12dp" />
 
         <!-- Buttons -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:gravity="end">
+            android:gravity="center"
+            android:layout_marginBottom="12dp">
 
             <Button
                 android:id="@+id/resetButton"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_width="0dp"
+                android:layout_height="52dp"
+                android:layout_weight="1"
                 android:text="Zurücksetzen"
-                android:textColor="#FFFFFF"
-                android:backgroundTint="#444444"
-                android:layout_marginEnd="8dp" />
+                android:textColor="#CF6679"
+                android:background="@drawable/outlined_button"
+                android:layout_marginEnd="6dp"
+                android:textAllCaps="false" />
 
             <Button
                 android:id="@+id/saveButton"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_width="0dp"
+                android:layout_height="52dp"
+                android:layout_weight="1"
                 android:text="Speichern"
                 android:textColor="#FFFFFF"
-                android:backgroundTint="#FF9800" />
+                android:backgroundTint="#4CAF50"
+                android:layout_marginStart="6dp"
+                android:textAllCaps="false" />
         </LinearLayout>
 
     </LinearLayout>

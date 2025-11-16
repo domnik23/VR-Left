@@ -18,6 +18,10 @@ import androidx.appcompat.widget.SwitchCompat
 
 class SettingsActivity : AppCompatActivity() {
 
+    private lateinit var videoPrefs: VideoPreferences
+
+    private lateinit var selectVideoFolderButton: Button
+    private lateinit var currentFolderText: TextView
     private lateinit var selectVideoButton: Button
     private lateinit var currentVideoText: TextView
     private lateinit var videoRotationSpinner: Spinner
@@ -36,9 +40,27 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var minSpeedMovingValueText: TextView
     private lateinit var maxSpeedSeekBar: SeekBar
     private lateinit var maxSpeedValueText: TextView
+    private lateinit var smoothingSeekBar: SeekBar
+    private lateinit var smoothingValueText: TextView
     private lateinit var appVersionText: TextView
     private lateinit var resetButton: Button
     private lateinit var saveButton: Button
+
+    private val folderPickerLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == RESULT_OK) {
+            result.data?.data?.let { treeUri ->
+                contentResolver.takePersistableUriPermission(
+                    treeUri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                )
+                saveVideoFolderUri(treeUri.toString())
+                updateCurrentFolderDisplay()
+                Toast.makeText(this, "Ordner ausgewählt - Videos werden beim Start geladen", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
 
     private val videoPickerLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -60,12 +82,17 @@ class SettingsActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_settings)
 
+        // Initialize video preferences
+        videoPrefs = VideoPreferences(this)
+
         initViews()
         loadSettings()
         setupListeners()
     }
 
     private fun initViews() {
+        selectVideoFolderButton = findViewById(R.id.selectVideoFolderButton)
+        currentFolderText = findViewById(R.id.currentFolderText)
         selectVideoButton = findViewById(R.id.selectVideoButton)
         currentVideoText = findViewById(R.id.currentVideoText)
         videoRotationSpinner = findViewById(R.id.videoRotationSpinner)
@@ -90,6 +117,8 @@ class SettingsActivity : AppCompatActivity() {
         minSpeedMovingValueText = findViewById(R.id.minSpeedMovingValueText)
         maxSpeedSeekBar = findViewById(R.id.maxSpeedSeekBar)
         maxSpeedValueText = findViewById(R.id.maxSpeedValueText)
+        smoothingSeekBar = findViewById(R.id.smoothingSeekBar)
+        smoothingValueText = findViewById(R.id.smoothingValueText)
         appVersionText = findViewById(R.id.appVersionText)
         resetButton = findViewById(R.id.resetButton)
         saveButton = findViewById(R.id.saveButton)
@@ -138,6 +167,10 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun setupListeners() {
+        selectVideoFolderButton.setOnClickListener {
+            openFolderPicker()
+        }
+
         selectVideoButton.setOnClickListener {
             openVideoPicker()
         }
@@ -204,6 +237,21 @@ class SettingsActivity : AppCompatActivity() {
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
         })
 
+        smoothingSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                val smoothing = progress * 0.01f // 0.0 to 1.0
+                smoothingValueText.text = when {
+                    smoothing < 0.2f -> "Sehr sanft"
+                    smoothing < 0.4f -> "Sanft"
+                    smoothing < 0.6f -> "Normal"
+                    smoothing < 0.8f -> "Direkt"
+                    else -> "Sofort"
+                }
+            }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
+
         resetButton.setOnClickListener {
             resetToDefaults()
         }
@@ -244,6 +292,12 @@ class SettingsActivity : AppCompatActivity() {
         minSpeedMovingSeekBar.progress = (minSpeedMoving * 100).toInt() // 0.0 - 1.0
         val maxSpeed = prefs.getFloat("max_speed", 1.5f)
         maxSpeedSeekBar.progress = ((maxSpeed - 1.0f) * 100).toInt() // 1.0 - 2.0
+        val smoothing = prefs.getFloat("speed_smoothing", 0.3f)
+        smoothingSeekBar.progress = (smoothing * 100).toInt() // 0.0 - 1.0
+
+        // Update display
+        updateCurrentFolderDisplay()
+        updateCurrentVideoDisplay()
     }
 
     private fun saveSettings() {
@@ -278,6 +332,8 @@ class SettingsActivity : AppCompatActivity() {
         prefs.putFloat("min_speed_moving", minSpeedMoving)
         val maxSpeed = 1.0f + maxSpeedSeekBar.progress * 0.01f // 1.0 - 2.0
         prefs.putFloat("max_speed", maxSpeed)
+        val smoothing = smoothingSeekBar.progress * 0.01f // 0.0 - 1.0
+        prefs.putFloat("speed_smoothing", smoothing)
 
         prefs.apply()
 
@@ -291,6 +347,7 @@ class SettingsActivity : AppCompatActivity() {
         AppConfig.minSpeed = minSpeed
         AppConfig.minSpeedMoving = minSpeedMoving
         AppConfig.maxSpeed = maxSpeed
+        AppConfig.speedSmoothingFactor = smoothing
 
         Toast.makeText(this, "Einstellungen gespeichert", Toast.LENGTH_SHORT).show()
     }
@@ -305,6 +362,7 @@ class SettingsActivity : AppCompatActivity() {
         minSpeedSeekBar.progress = 40 // 0.4x
         minSpeedMovingSeekBar.progress = 70 // 0.7x
         maxSpeedSeekBar.progress = 50 // 1.5x (1.0 + 0.5)
+        smoothingSeekBar.progress = 30 // 0.3 (Normal)
 
         Toast.makeText(this, "Auf Standardwerte zurückgesetzt", Toast.LENGTH_SHORT).show()
     }
@@ -320,9 +378,36 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun saveVideoUri(uriString: String) {
+        // Use VideoPreferences to save URI and set the video changed flag
+        videoPrefs.saveVideoUri(uriString)
+    }
+
+    private fun openFolderPicker() {
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
+        }
+        folderPickerLauncher.launch(intent)
+    }
+
+    private fun saveVideoFolderUri(uriString: String) {
         getSharedPreferences("VRLAPrefs", Context.MODE_PRIVATE)
             .edit()
-            .putString("video_uri", uriString)
+            .putString("video_folder_uri", uriString)
             .apply()
+    }
+
+    private fun updateCurrentFolderDisplay() {
+        val prefs = getSharedPreferences("VRLAPrefs", Context.MODE_PRIVATE)
+        val folderUriString = prefs.getString("video_folder_uri", null)
+
+        if (folderUriString != null) {
+            val uri = Uri.parse(folderUriString)
+            // Extract folder name from tree URI
+            val folderName = uri.lastPathSegment?.substringAfter(':') ?: "Ordner"
+            currentFolderText.text = "Ordner: $folderName"
+        } else {
+            currentFolderText.text = "Kein Ordner ausgewählt"
+        }
     }
 }
