@@ -834,11 +834,14 @@ Kalorien: ${calories}kcal"""
             savedPlaybackPosition = 0 // Reset position for new video
         } else {
             // Resume playback and restore position if available
-            if (isVRActive && savedPlaybackPosition > 0) {
-                vrRenderer.seekTo(savedPlaybackPosition)
+            if (isVRActive) {
+                if (savedPlaybackPosition > 0) {
+                    vrRenderer.seekTo(savedPlaybackPosition)
+                    android.util.Log.d("MainActivity", "Restored playback position: $savedPlaybackPosition ms")
+                    savedPlaybackPosition = 0 // Clear after restore
+                }
+                // Always resume video when returning from settings
                 vrRenderer.resume()
-                android.util.Log.d("MainActivity", "Restored playback position: $savedPlaybackPosition ms")
-                savedPlaybackPosition = 0 // Clear after restore
             }
             // Update volume if player is running
             vrRenderer.updateVolume()
