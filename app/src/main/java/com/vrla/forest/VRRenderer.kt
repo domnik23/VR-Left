@@ -177,16 +177,23 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
             Matrix.setIdentityM(tempMatrix, 0)
         }
 
-        // Left eye: Rotation, then IPD offset in camera space
-        // Matrix multiplication: viewMatrix = translation * rotation
-        Matrix.setIdentityM(viewMatrixLeft, 0)
-        Matrix.translateM(viewMatrixLeft, 0, -AppConfig.ipd / 2f, 0f, 0f)
-        Matrix.multiplyMM(viewMatrixLeft, 0, viewMatrixLeft, 0, tempMatrix, 0)
+        // Create view matrices for left and right eye with IPD offset
+        createEyeViewMatrix(viewMatrixLeft, tempMatrix, -AppConfig.ipd / 2f)
+        createEyeViewMatrix(viewMatrixRight, tempMatrix, AppConfig.ipd / 2f)
+    }
 
-        // Right eye: Rotation, then IPD offset in camera space
-        Matrix.setIdentityM(viewMatrixRight, 0)
-        Matrix.translateM(viewMatrixRight, 0, AppConfig.ipd / 2f, 0f, 0f)
-        Matrix.multiplyMM(viewMatrixRight, 0, viewMatrixRight, 0, tempMatrix, 0)
+    /**
+     * Creates a view matrix for one eye by applying IPD offset and rotation
+     * Matrix multiplication: viewMatrix = translation * rotation
+     */
+    private fun createEyeViewMatrix(
+        viewMatrix: FloatArray,
+        rotationMatrix: FloatArray,
+        ipdOffset: Float
+    ) {
+        Matrix.setIdentityM(viewMatrix, 0)
+        Matrix.translateM(viewMatrix, 0, ipdOffset, 0f, 0f)
+        Matrix.multiplyMM(viewMatrix, 0, viewMatrix, 0, rotationMatrix, 0)
     }
 
     private fun drawSphere(viewMatrix: FloatArray, texOffsetU: Float, texScaleX: Float) {

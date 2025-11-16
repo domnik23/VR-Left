@@ -39,6 +39,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private lateinit var vrRenderer: VRRenderer
     private lateinit var sensorManager: SensorManager
     private lateinit var stepController: StepController
+    private lateinit var videoPrefs: VideoPreferences
 
     private lateinit var overlayContainer: View
     private lateinit var finishOverlay: View
@@ -103,7 +104,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                     Intent.FLAG_GRANT_READ_URI_PERMISSION
                 )
                 selectedVideoUri = uri
-                saveVideoUri(uri.toString())
+                videoPrefs.saveVideoUri(uri)
                 initializeVRWithVideo()
             }
         } else {
@@ -116,8 +117,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     companion object {
         private const val PERMISSION_REQUEST_CODE = 100
         private const val DEFAULT_VIDEO_NAME = "forest_jog.mp4"
-        private const val PREFS_NAME = "VRLAPrefs"
-        private const val KEY_VIDEO_URI = "video_uri"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -125,6 +124,9 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         setContentView(R.layout.activity_main)
+
+        // Initialize preferences helper
+        videoPrefs = VideoPreferences(this)
 
         // Load settings from preferences
         AppConfig.loadFromPreferences(this)
@@ -280,6 +282,18 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         stepController = StepController()
     }
 
+    /**
+     * Registers sensor listeners for rotation and step counter
+     */
+    private fun registerSensorListeners() {
+        rotationVector?.let {
+            sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME)
+        }
+        stepCounter?.let {
+            sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
+        }
+    }
+
     override fun onRequestPermissionsResult(
         requestCode: Int,
         permissions: Array<out String>,
@@ -317,7 +331,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
     private fun findAndLoadVideo() {
         // Check if a video folder is selected
-        val folderUri = getVideoFolderUri()
+        val folderUri = videoPrefs.getVideoFolderUri()
         if (folderUri != null) {
             // Validate folder permissions before using
             if (validateFolderPermissions(folderUri)) {
@@ -326,7 +340,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                 return
             } else {
                 // Permissions lost - clear invalid URI and show message
-                clearVideoFolderUri()
+                videoPrefs.clearVideoFolderUri()
                 showInfoBox(
                     "Ordner-Zugriff verloren.\nBitte wähle den Ordner neu in Einstellungen (⋮)",
                     durationMs = 0
@@ -337,7 +351,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         }
 
         // No folder selected - check saved video URI
-        val savedUri = getSavedVideoUri()
+        val savedUri = videoPrefs.getSavedVideoUri()
         if (savedUri != null) {
             try {
                 contentResolver.openInputStream(savedUri)?.close()
@@ -405,19 +419,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         videoPickerLauncher.launch(intent)
     }
 
-    private fun saveVideoUri(uriString: String) {
-        getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .edit()
-            .putString(KEY_VIDEO_URI, uriString)
-            .apply()
-    }
-
-    private fun getSavedVideoUri(): Uri? {
-        val uriString = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .getString(KEY_VIDEO_URI, null)
-        return uriString?.let { Uri.parse(it) }
-    }
-
     private fun initializeVRWithVideo() {
         android.util.Log.d("MainActivity", "Initializing VR with video: $selectedVideoUri")
         // Start VR after short delay (so OpenGL has time)
@@ -445,7 +446,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             val videoFileName = getVideoFileName(uri)
             if (videoFileName != null) {
                 // Get folder tree URI if available
-                val folderTreeUri = getVideoFolderUri()
+                val folderTreeUri = videoPrefs.getVideoFolderUri()
                 if (folderTreeUri != null) {
                     android.util.Log.d("MainActivity", "Using video folder URI: $folderTreeUri")
                 } else {
@@ -467,13 +468,13 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         startTime = System.currentTimeMillis()
         sessionSteps = 0
 
-        sensorManager.registerListener(this, rotationVector, SensorManager.SENSOR_DELAY_GAME)
+        // Register sensor listeners
+        registerSensorListeners()
 
         // Check if step counter is available
         if (stepCounter == null) {
             showStepCounterWarning()
         } else {
-            sensorManager.registerListener(this, stepCounter, SensorManager.SENSOR_DELAY_NORMAL)
             totalSteps = 0
         }
 
@@ -788,7 +789,7 @@ Kalorien: ${calories}kcal"""
         AppConfig.loadFromPreferences(this)
 
         // Check if video URI changed
-        val savedUri = getSavedVideoUri()
+        val savedUri = videoPrefs.getSavedVideoUri()
         if (savedUri != null && savedUri != selectedVideoUri && isVRActive) {
             // New video selected - reload and reset
             selectedVideoUri = savedUri
@@ -810,12 +811,7 @@ Kalorien: ${calories}kcal"""
 
         // Re-register sensor listeners if VR is active
         if (isVRActive) {
-            rotationVector?.let {
-                sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME)
-            }
-            stepCounter?.let {
-                sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
-            }
+            registerSensorListeners()
         }
     }
 
@@ -1039,24 +1035,4 @@ Kalorien: ${calories}kcal"""
         }
     }
 
-    /**
-     * Clear video folder URI from SharedPreferences
-     */
-    private fun clearVideoFolderUri() {
-        getSharedPreferences("VRLAPrefs", Context.MODE_PRIVATE)
-            .edit()
-            .remove("video_folder_uri")
-            .apply()
-    }
-
-    /**
-     * Get the video folder tree URI from SharedPreferences
-     *
-     * @return Tree URI of the video folder, or null if not set
-     */
-    private fun getVideoFolderUri(): Uri? {
-        val prefs = getSharedPreferences("VRLAPrefs", Context.MODE_PRIVATE)
-        val uriString = prefs.getString("video_folder_uri", null)
-        return uriString?.let { Uri.parse(it) }
-    }
 }
