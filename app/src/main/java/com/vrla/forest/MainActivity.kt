@@ -94,6 +94,32 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
     private var selectedVideoUri: Uri? = null
 
+    private val folderPickerLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == RESULT_OK) {
+            result.data?.data?.let { treeUri ->
+                contentResolver.takePersistableUriPermission(
+                    treeUri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                )
+                videoPrefs.saveVideoFolderUri(treeUri)
+                android.util.Log.d("MainActivity", "Folder selected: $treeUri")
+
+                // Show video list from the selected folder
+                showVideoListFromFolder(treeUri)
+            }
+        } else {
+            // User cancelled folder selection - show option to pick single video instead
+            showInfoBox(
+                "Kein Ordner gewählt.\nÖffne Einstellungen (⋮) um später einen Ordner zu wählen.",
+                durationMs = 5000
+            )
+            // Fall back to single video picker
+            openVideoPicker()
+        }
+    }
+
     private val videoPickerLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -368,16 +394,25 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     }
 
     private fun continueVideoSearch() {
-        // Search in Movies/Videos for forest_jog.mp4
-        val foundUri = searchForDefaultVideo()
-        if (foundUri != null) {
-            selectedVideoUri = foundUri
-            saveVideoUri(foundUri.toString())
-            initializeVRWithVideo()
-        } else {
-            // Not found - open file picker
-            openVideoPicker()
+        // First time setup - ask user to select a folder with videos
+        showInfoBox(
+            "Willkommen!\n\n" +
+                    "1. Wähle einen Ordner mit deinen Videos\n" +
+                    "2. Wähle ein Video aus der Liste\n\n" +
+                    "Tipp: Du kannst später in Einstellungen (⋮) den Ordner ändern.",
+            durationMs = 0 // Don't auto-hide
+        )
+
+        // Open folder picker for better UX
+        openFolderPicker()
+    }
+
+    private fun openFolderPicker() {
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
         }
+        folderPickerLauncher.launch(intent)
     }
 
     private fun searchForDefaultVideo(): Uri? {
@@ -957,8 +992,9 @@ Kalorien: ${calories}kcal"""
             val adapter = VideoListAdapter(videos) { videoItem ->
                 // Video selected
                 selectedVideoUri = videoItem.uri
-                saveVideoUri(videoItem.uri.toString())
+                videoPrefs.saveVideoUri(videoItem.uri)
                 videoListContainer.visibility = View.GONE
+                infoBox.visibility = View.GONE  // Hide welcome message
                 initializeVRWithVideo()
             }
             videoRecyclerView.adapter = adapter
