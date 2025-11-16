@@ -110,8 +110,15 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
         surfaceCreated = true
         android.util.Log.d("VRRenderer", "Surface created, ready for video")
 
-        // Wenn Video starten angefordert wurde, jetzt starten
-        if (isVideoReadyToStart) {
+        // Check if we need to start a new video or just update existing MediaPlayer's surface
+        if (mediaPlayer != null) {
+            // MediaPlayer already exists (e.g., returning from Settings)
+            // Just update its surface instead of creating a new one
+            android.util.Log.d("VRRenderer", "MediaPlayer exists - updating surface only")
+            mediaPlayer?.setSurface(Surface(surfaceTexture))
+        } else if (isVideoReadyToStart) {
+            // No MediaPlayer yet - start video from scratch
+            android.util.Log.d("VRRenderer", "No MediaPlayer - starting fresh")
             startVideoNow()
         }
     }
