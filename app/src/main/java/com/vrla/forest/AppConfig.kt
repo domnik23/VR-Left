@@ -108,6 +108,25 @@ object AppConfig {
      */
     @Volatile var maxSpeed = 1.5f
 
+    /**
+     * Speed change smoothing factor
+     *
+     * Controls how quickly the video speed adapts to changes in step frequency.
+     * Lower values = smoother/slower transitions, higher values = more responsive.
+     *
+     * Range: 0.0 - 1.0
+     * Default: 0.3 (moderate smoothing)
+     *
+     * Values:
+     * - 0.1: Very smooth, slow acceleration/deceleration (relaxed)
+     * - 0.3: Moderate smoothing (balanced)
+     * - 0.5: Responsive with some smoothing
+     * - 1.0: Instant speed changes (no smoothing)
+     *
+     * @see StepController.getCurrentSpeed for smoothing implementation
+     */
+    @Volatile var speedSmoothingFactor = 0.3f
+
     // ============================================================
     // VR SETTINGS
     // ============================================================
@@ -235,6 +254,7 @@ object AppConfig {
      * - "min_speed": float 0.0-1.0
      * - "min_speed_moving": float 0.0-1.0
      * - "max_speed": float 1.0-2.0
+     * - "speed_smoothing": float 0.0-1.0
      *
      * @param context Android context for accessing SharedPreferences
      */
@@ -258,6 +278,7 @@ object AppConfig {
             minSpeed = prefs.getFloat("min_speed", 0.4f)
             minSpeedMoving = prefs.getFloat("min_speed_moving", 0.7f)
             maxSpeed = prefs.getFloat("max_speed", 1.5f)
+            speedSmoothingFactor = prefs.getFloat("speed_smoothing", 0.3f)
         }
     }
 }

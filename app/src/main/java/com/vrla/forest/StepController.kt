@@ -35,8 +35,12 @@ class StepController {
     // Sliding window of step timestamps (milliseconds since epoch)
     private val stepTimestamps = mutableListOf<Long>()
 
-    // Current calculated playback speed (cached to avoid recalculation every frame)
-    private var currentSpeed = AppConfig.minSpeed
+    // Target speed calculated from step frequency (instant, not smoothed)
+    private var targetSpeed = AppConfig.minSpeed
+
+    // Smoothed speed that gradually transitions to targetSpeed
+    // This is the actual speed returned to the video player
+    private var smoothedSpeed = AppConfig.minSpeed
 
     // Lock for thread-safe access from sensor and UI threads
     private val lock = Any()
@@ -62,7 +66,7 @@ class StepController {
     }
 
     /**
-     * Calculate playback speed based on current step frequency
+     * Calculate target playback speed based on current step frequency
      *
      * MUST be called within synchronized(lock) block!
      *
@@ -75,11 +79,14 @@ class StepController {
      * - < 10 steps/min: Idle (minSpeed = 0.4x)
      * - 10-120 steps/min: Walking to jogging (linear interpolation)
      * - ≥ 120 steps/min: Fast jogging (maxSpeed = 1.5x)
+     *
+     * Note: This calculates the TARGET speed. The actual speed is smoothed
+     * over time in getCurrentSpeed() based on speedSmoothingFactor.
      */
     private fun updateSpeed() {
         // Must be called within synchronized block
         if (stepTimestamps.isEmpty()) {
-            currentSpeed = AppConfig.minSpeed
+            targetSpeed = AppConfig.minSpeed
             return
         }
 
@@ -88,7 +95,7 @@ class StepController {
         val stepsInWindow = stepTimestamps.size
         val stepsPerMinute = stepsInWindow / windowSizeMinutes
 
-        currentSpeed = when {
+        targetSpeed = when {
             stepsPerMinute < 10 -> {
                 // No meaningful movement - use minimum speed
                 AppConfig.minSpeed  // Default: 0.4x
@@ -108,13 +115,18 @@ class StepController {
     }
 
     /**
-     * Get current playback speed with decay for stopped movement
+     * Get current playback speed with smoothing and decay
      *
-     * Returns the current playback speed, applying a decay factor if no steps
-     * have been detected recently. This prevents jarring speed changes when user stops.
+     * Returns the smoothed playback speed that gradually transitions to the target speed.
+     * Also applies decay when user stops moving.
      *
-     * Decay behavior:
-     * - First 3 seconds after last step: No decay (maintains current speed)
+     * Smoothing:
+     * - Uses exponential smoothing: smoothedSpeed moves toward targetSpeed
+     * - Speed controlled by speedSmoothingFactor (0.0 = very smooth, 1.0 = instant)
+     * - Creates natural acceleration/deceleration feel
+     *
+     * Decay behavior (when stopped):
+     * - First 3 seconds after last step: Normal smoothing continues
      * - Next 5 seconds: Linear decay from current speed to minSpeed
      * - After 8 seconds: Full decay to minSpeed
      *
@@ -124,20 +136,33 @@ class StepController {
      */
     fun getCurrentSpeed(): Float {
         synchronized(lock) {
-            if (stepTimestamps.isEmpty()) return AppConfig.minSpeed
+            if (stepTimestamps.isEmpty()) {
+                // No steps yet - smoothly transition to minSpeed
+                smoothedSpeed += (AppConfig.minSpeed - smoothedSpeed) * AppConfig.speedSmoothingFactor
+                return smoothedSpeed
+            }
 
             val timeSinceLastStep = System.currentTimeMillis() - stepTimestamps.last()
 
-            if (timeSinceLastStep > 3000) {
+            // Determine the final target speed (with decay if stopped)
+            val finalTarget = if (timeSinceLastStep > 3000) {
                 // User stopped moving - apply decay over 5 seconds
                 // decayFactor: 1.0 at 3s, 0.0 at 8s
                 val decayFactor = max(0f, 1f - (timeSinceLastStep - 3000) / 5000f)
 
-                // Interpolate between minSpeed and currentSpeed based on decay
-                return AppConfig.minSpeed + (currentSpeed - AppConfig.minSpeed) * decayFactor
+                // Interpolate between minSpeed and targetSpeed based on decay
+                AppConfig.minSpeed + (targetSpeed - AppConfig.minSpeed) * decayFactor
+            } else {
+                // User is moving - use calculated target speed
+                targetSpeed
             }
 
-            return currentSpeed
+            // Smooth transition to final target using exponential smoothing
+            // Formula: smoothed = smoothed + (target - smoothed) * factor
+            // Higher factor = faster convergence to target
+            smoothedSpeed += (finalTarget - smoothedSpeed) * AppConfig.speedSmoothingFactor
+
+            return smoothedSpeed
         }
     }
 
@@ -170,13 +195,14 @@ class StepController {
     /**
      * Reset controller state for new session
      *
-     * Clears step history and resets speed to minimum.
+     * Clears step history and resets speeds to minimum.
      * Called when user restarts the video (double-press Volume Down).
      */
     fun reset() {
         synchronized(lock) {
             stepTimestamps.clear()
-            currentSpeed = AppConfig.minSpeed
+            targetSpeed = AppConfig.minSpeed
+            smoothedSpeed = AppConfig.minSpeed
         }
     }
 }
