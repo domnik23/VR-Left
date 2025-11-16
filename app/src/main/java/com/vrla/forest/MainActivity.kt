@@ -379,6 +379,11 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             if (videoFileName != null) {
                 // Get folder tree URI if available
                 val folderTreeUri = getVideoFolderUri()
+                if (folderTreeUri != null) {
+                    android.util.Log.d("MainActivity", "Using video folder URI: $folderTreeUri")
+                } else {
+                    android.util.Log.d("MainActivity", "No video folder selected - select folder in Settings for automatic parameter loading")
+                }
 
                 timecodeLoader = TimecodeParameterLoader(this)
                 if (timecodeLoader!!.loadParametersForVideo(videoFileName, uri, folderTreeUri)) {
