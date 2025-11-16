@@ -2,12 +2,12 @@
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="rectangle">
 
-    <!-- Transparent background -->
-    <solid android:color="#00000000" />
+    <!-- Semi-transparent pink background for better visibility -->
+    <solid android:color="#40FF69B4" />
 
-    <!-- Pink outline -->
+    <!-- Pink outline (thicker for better visibility) -->
     <stroke
-        android:width="2dp"
+        android:width="3dp"
         android:color="#FF69B4" />
 
     <!-- Rounded corners -->
