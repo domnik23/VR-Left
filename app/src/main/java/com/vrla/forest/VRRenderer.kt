@@ -545,6 +545,34 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
         surfaceTexture = null
     }
 
+    /**
+     * Get current playback position in milliseconds
+     */
+    fun getCurrentPosition(): Int {
+        return mediaPlayer?.currentPosition ?: 0
+    }
+
+    /**
+     * Seek to specific position in milliseconds
+     */
+    fun seekTo(positionMs: Int) {
+        mediaPlayer?.seekTo(positionMs)
+    }
+
+    /**
+     * Pause video playback
+     */
+    fun pause() {
+        mediaPlayer?.pause()
+    }
+
+    /**
+     * Resume video playback
+     */
+    fun resume() {
+        mediaPlayer?.start()
+    }
+
     fun setScreenDimensions(width: Int, height: Int) {
         screenWidth = width
         screenHeight = height

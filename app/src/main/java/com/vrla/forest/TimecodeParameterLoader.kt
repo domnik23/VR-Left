@@ -46,6 +46,20 @@ class TimecodeParameterLoader(private val context: Context) {
     companion object {
         private const val TAG = "TimecodeParamLoader"
         private const val PARAMETERS_DIR = "parameters"
+
+        // Cache for parsed parameter files (filename -> config)
+        private val configCache = mutableMapOf<String, TimecodeConfig>()
+
+        /**
+         * Clear the parameter file cache
+         * Call this if parameter files have been modified
+         */
+        fun clearCache() {
+            synchronized(configCache) {
+                configCache.clear()
+                Log.d(TAG, "Parameter cache cleared")
+            }
+        }
     }
 
     /**
@@ -68,9 +82,19 @@ class TimecodeParameterLoader(private val context: Context) {
             val baseName = videoFileName.substringBeforeLast(".")
             val paramFileName = "$baseName.json"
 
+            // Check cache first
+            synchronized(configCache) {
+                configCache[paramFileName]?.let { cachedConfig ->
+                    config = cachedConfig
+                    Log.d(TAG, "Loaded parameters from cache: $paramFileName")
+                    return true
+                }
+            }
+
             // Try loading from video folder first (if URI provided)
             if (videoUri != null) {
                 if (tryLoadFromVideoFolder(videoUri, paramFileName)) {
+                    cacheConfig(paramFileName)
                     return true
                 }
             }
@@ -78,6 +102,7 @@ class TimecodeParameterLoader(private val context: Context) {
             // Try loading from folder tree URI (if provided)
             if (folderTreeUri != null) {
                 if (tryLoadFromFolderTree(folderTreeUri, paramFileName)) {
+                    cacheConfig(paramFileName)
                     return true
                 }
             }
@@ -85,11 +110,29 @@ class TimecodeParameterLoader(private val context: Context) {
             // Try loading from internal storage
             val internalFile = File(context.getExternalFilesDir(PARAMETERS_DIR), paramFileName)
             if (internalFile.exists()) {
-                return loadFromFile(internalFile)
+                val result = loadFromFile(internalFile)
+                if (result) cacheConfig(paramFileName)
+                return result
             }
 
             // Fall back to assets
-            return loadFromAssets(paramFileName)
+            val result = loadFromAssets(paramFileName)
+            if (result) cacheConfig(paramFileName)
+            return result
+        }
+    }
+
+    /**
+     * Cache the current configuration
+     *
+     * @param paramFileName Name of the parameter file to use as cache key
+     */
+    private fun cacheConfig(paramFileName: String) {
+        config?.let { currentConfig ->
+            synchronized(configCache) {
+                configCache[paramFileName] = currentConfig
+                Log.d(TAG, "Cached parameters: $paramFileName")
+            }
         }
     }
 

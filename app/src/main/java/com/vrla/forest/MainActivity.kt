@@ -31,6 +31,7 @@ import androidx.recyclerview.widget.RecyclerView
 import android.provider.DocumentsContract
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
 
 class MainActivity : AppCompatActivity(), SensorEventListener {
 
@@ -64,6 +65,12 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
     // Timecode parameter loading
     private var timecodeLoader: TimecodeParameterLoader? = null
+
+    // Info box auto-hide job
+    private var infoBoxJob: Job? = null
+
+    // Playback position saving for lifecycle
+    private var savedPlaybackPosition = 0
 
     // Volume button double-press detection
     private var lastVolumeUpPressTime = 0L
@@ -299,9 +306,21 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         // Check if a video folder is selected
         val folderUri = getVideoFolderUri()
         if (folderUri != null) {
-            // Show video list from folder
-            showVideoListFromFolder(folderUri)
-            return
+            // Validate folder permissions before using
+            if (validateFolderPermissions(folderUri)) {
+                // Show video list from folder
+                showVideoListFromFolder(folderUri)
+                return
+            } else {
+                // Permissions lost - clear invalid URI and show message
+                clearVideoFolderUri()
+                showInfoBox(
+                    "Ordner-Zugriff verloren.\nBitte wähle den Ordner neu in Einstellungen (⋮)",
+                    durationMs = 0
+                )
+                android.util.Log.w("MainActivity", "Folder permissions lost for URI: $folderUri")
+                // Fall through to try other options
+            }
         }
 
         // No folder selected - check saved video URI
@@ -737,8 +756,16 @@ Kalorien: ${calories}kcal"""
             android.util.Log.d("MainActivity", "New video detected - reloading: $savedUri")
             vrRenderer.setVideoUri(savedUri)
             restartSession()
+            savedPlaybackPosition = 0 // Reset position for new video
         } else {
-            // Just update volume if player is running
+            // Resume playback and restore position if available
+            if (isVRActive && savedPlaybackPosition > 0) {
+                vrRenderer.seekTo(savedPlaybackPosition)
+                vrRenderer.resume()
+                android.util.Log.d("MainActivity", "Restored playback position: $savedPlaybackPosition ms")
+                savedPlaybackPosition = 0 // Clear after restore
+            }
+            // Update volume if player is running
             vrRenderer.updateVolume()
         }
 
@@ -755,6 +782,14 @@ Kalorien: ${calories}kcal"""
 
     override fun onPause() {
         super.onPause()
+
+        // Save current playback position before pausing
+        if (isVRActive) {
+            savedPlaybackPosition = vrRenderer.getCurrentPosition()
+            vrRenderer.pause()
+            android.util.Log.d("MainActivity", "Saved playback position: $savedPlaybackPosition ms")
+        }
+
         glSurfaceView.onPause()
         sensorManager.unregisterListener(this)
     }
@@ -824,9 +859,11 @@ Kalorien: ${calories}kcal"""
         }
 
         if (videos.isEmpty()) {
-            // No videos found - show info and allow other selection
-            showInfoBox("Keine Videos im Ordner gefunden. Bitte wähle eine Datei.")
-            openVideoPicker()
+            // No videos found - show persistent info message
+            showInfoBox(
+                "Keine Videos im Ordner gefunden.\nÖffne Einstellungen (⋮) um einen anderen Ordner zu wählen.",
+                durationMs = 0 // Stay visible until user acts
+            )
         } else {
             // Show video list
             showVideoList(videos)
@@ -901,16 +938,21 @@ Kalorien: ${calories}kcal"""
      * Show info box with message
      *
      * @param message Message to display
+     * @param durationMs Duration in milliseconds before auto-hide (0 = stay visible)
      */
-    private fun showInfoBox(message: String) {
+    private fun showInfoBox(message: String, durationMs: Long = 5000) {
+        infoBoxJob?.cancel() // Cancel any previous auto-hide job
+
         runOnUiThread {
             infoBoxText.text = message
             infoBox.visibility = View.VISIBLE
 
-            // Auto-hide after 5 seconds
-            lifecycleScope.launch {
-                delay(5000)
-                infoBox.visibility = View.GONE
+            // Auto-hide after specified duration (if > 0)
+            if (durationMs > 0) {
+                infoBoxJob = lifecycleScope.launch {
+                    delay(durationMs)
+                    infoBox.visibility = View.GONE
+                }
             }
         }
     }
@@ -940,6 +982,32 @@ Kalorien: ${calories}kcal"""
             android.util.Log.w("MainActivity", "Error extracting filename from URI: ${e.message}")
             null
         }
+    }
+
+    /**
+     * Validate that folder permissions are still valid
+     *
+     * @param folderUri Tree URI to validate
+     * @return true if permissions are valid, false otherwise
+     */
+    private fun validateFolderPermissions(folderUri: Uri): Boolean {
+        return try {
+            val persistedUris = contentResolver.persistedUriPermissions
+            persistedUris.any { it.uri == folderUri && it.isReadPermission }
+        } catch (e: Exception) {
+            android.util.Log.e("MainActivity", "Permission validation failed: ${e.message}")
+            false
+        }
+    }
+
+    /**
+     * Clear video folder URI from SharedPreferences
+     */
+    private fun clearVideoFolderUri() {
+        getSharedPreferences("VRLAPrefs", Context.MODE_PRIVATE)
+            .edit()
+            .remove("video_folder_uri")
+            .apply()
     }
 
     /**
