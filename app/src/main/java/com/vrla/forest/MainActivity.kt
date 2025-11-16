@@ -356,7 +356,24 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     }
 
     private fun findAndLoadVideo() {
-        // Check if a video folder is selected
+        // PRIORITY 1: Check if we have a previously saved video (from any source)
+        // This ensures the video loads automatically on app restart
+        val savedUri = videoPrefs.getSavedVideoUri()
+        if (savedUri != null) {
+            try {
+                contentResolver.openInputStream(savedUri)?.close()
+                selectedVideoUri = savedUri
+                android.util.Log.d("MainActivity", "Auto-loading saved video: $savedUri")
+                initializeVRWithVideo()
+                return
+            } catch (e: Exception) {
+                android.util.Log.w("MainActivity", "Saved video no longer accessible: ${e.message}")
+                // Video is gone - clear it and fall through to folder check
+                videoPrefs.clearVideoUri()
+            }
+        }
+
+        // PRIORITY 2: Check if a video folder is selected (for first-time setup)
         val folderUri = videoPrefs.getVideoFolderUri()
         if (folderUri != null) {
             // Validate folder permissions before using
@@ -372,24 +389,11 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                     durationMs = 0
                 )
                 android.util.Log.w("MainActivity", "Folder permissions lost for URI: $folderUri")
-                // Fall through to try other options
+                // Fall through to first-time setup
             }
         }
 
-        // No folder selected - check saved video URI
-        val savedUri = videoPrefs.getSavedVideoUri()
-        if (savedUri != null) {
-            try {
-                contentResolver.openInputStream(savedUri)?.close()
-                selectedVideoUri = savedUri
-                initializeVRWithVideo()
-                return
-            } catch (e: Exception) {
-                android.util.Log.w("MainActivity", "Saved video no longer accessible: ${e.message}")
-            }
-        }
-
-        // No folder and no saved video - search for default video
+        // PRIORITY 3: No saved video and no folder - first time setup
         continueVideoSearch()
     }
 
@@ -837,6 +841,8 @@ Kalorien: ${calories}kcal"""
                           isVRActive
 
         android.util.Log.d("MainActivity", "onResume - videoChanged: $videoChanged")
+        android.util.Log.d("MainActivity", "onResume - isVRActive: $isVRActive")
+        android.util.Log.d("MainActivity", "onResume - savedPlaybackPosition: $savedPlaybackPosition")
 
         if (videoChanged) {
             // New video selected - reload and reset
