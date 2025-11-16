@@ -129,6 +129,78 @@
             </LinearLayout>
         </LinearLayout>
 
+        <!-- Display Section -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/settings_card_background"
+            android:padding="16dp"
+            android:layout_marginBottom="8dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="👁️ Anzeige"
+                android:textColor="#03DAC6"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:layout_marginBottom="12dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="12dp">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Stereo Modus (3D)"
+                    android:textColor="#FFFFFF"
+                    android:textSize="12sp" />
+
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/stereoSwitch"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" />
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Augenabstand (IPD)"
+                android:textColor="#FFFFFF"
+                android:textSize="12sp"
+                android:layout_marginBottom="4dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <SeekBar
+                    android:id="@+id/ipdSeekBar"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:max="30"
+                    android:progress="14" />
+
+                <TextView
+                    android:id="@+id/ipdValueText"
+                    android:layout_width="55dp"
+                    android:layout_height="wrap_content"
+                    android:text="64mm"
+                    android:textColor="#FFFFFF"
+                    android:textSize="12sp"
+                    android:textAlignment="textEnd" />
+            </LinearLayout>
+        </LinearLayout>
+
         <!-- Speed Section -->
         <LinearLayout
             android:layout_width="match_parent"
@@ -240,78 +312,6 @@
                     android:layout_width="55dp"
                     android:layout_height="wrap_content"
                     android:text="1.5x"
-                    android:textColor="#FFFFFF"
-                    android:textSize="12sp"
-                    android:textAlignment="textEnd" />
-            </LinearLayout>
-        </LinearLayout>
-
-        <!-- Display Section -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:background="@drawable/settings_card_background"
-            android:padding="16dp"
-            android:layout_marginBottom="8dp">
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="👁️ Anzeige"
-                android:textColor="#03DAC6"
-                android:textSize="14sp"
-                android:textStyle="bold"
-                android:layout_marginBottom="12dp" />
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:layout_marginBottom="12dp">
-
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="Stereo Modus (3D)"
-                    android:textColor="#FFFFFF"
-                    android:textSize="12sp" />
-
-                <androidx.appcompat.widget.SwitchCompat
-                    android:id="@+id/stereoSwitch"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content" />
-            </LinearLayout>
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Augenabstand (IPD)"
-                android:textColor="#FFFFFF"
-                android:textSize="12sp"
-                android:layout_marginBottom="4dp" />
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical">
-
-                <SeekBar
-                    android:id="@+id/ipdSeekBar"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:max="30"
-                    android:progress="14" />
-
-                <TextView
-                    android:id="@+id/ipdValueText"
-                    android:layout_width="55dp"
-                    android:layout_height="wrap_content"
-                    android:text="64mm"
                     android:textColor="#FFFFFF"
                     android:textSize="12sp"
                     android:textAlignment="textEnd" />
