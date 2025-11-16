@@ -4,9 +4,12 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="#E0000000"
+    android:background="#C0000000"
     android:gravity="center"
-    android:padding="32dp"
+    android:paddingStart="16dp"
+    android:paddingEnd="16dp"
+    android:paddingTop="24dp"
+    android:paddingBottom="24dp"
     android:visibility="gone">
 
     <TextView
@@ -23,7 +26,7 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:background="#40FFFFFF"
+        android:background="#30FFFFFF"
         android:padding="8dp" />
 
     <LinearLayout
