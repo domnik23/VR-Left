@@ -72,6 +72,7 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
     private var isVideoReadyToStart = false
     private var surfaceCreated = false
     private var videoEnded = false
+    private var isReleased = false  // Track if renderer has been released
 
     var onVideoEnded: (() -> Unit)? = null
     var onVideoError: ((String) -> Unit)? = null
@@ -83,6 +84,10 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
 
     override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {
         android.util.Log.d("VRRenderer", "onSurfaceCreated")
+
+        // Reset released flag if surface is being recreated
+        isReleased = false
+
         GLES30.glClearColor(1f, 0f, 0f, 1f)  // ROT für Debug
         GLES30.glEnable(GLES30.GL_DEPTH_TEST)
 
@@ -121,11 +126,22 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
     }
 
     override fun onDrawFrame(gl: GL10?) {
+        // Safety check: Don't render if released
+        if (isReleased || surfaceTexture == null) {
+            return
+        }
+
         GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT or GLES30.GL_DEPTH_BUFFER_BIT)
 
         // Always update texture (safe to call even if no new frame available)
         // This prevents video freezing issues caused by missed onFrameAvailable callbacks
-        surfaceTexture?.updateTexImage()
+        try {
+            surfaceTexture?.updateTexImage()
+        } catch (e: Exception) {
+            // Context may have been lost during lifecycle transitions
+            android.util.Log.w("VRRenderer", "updateTexImage failed: ${e.message}")
+            return
+        }
 
         // Update timecode parameters periodically
         updateTimecodeParameters()
@@ -564,9 +580,27 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
     }
 
     fun release() {
-        mediaPlayer?.release()
+        if (isReleased) {
+            return  // Already released
+        }
+
+        isReleased = true
+        android.util.Log.d("VRRenderer", "Releasing renderer resources")
+
+        // Release MediaPlayer first (it uses the SurfaceTexture)
+        try {
+            mediaPlayer?.release()
+        } catch (e: Exception) {
+            android.util.Log.w("VRRenderer", "Error releasing MediaPlayer: ${e.message}")
+        }
         mediaPlayer = null
-        surfaceTexture?.release()
+
+        // Then release SurfaceTexture
+        try {
+            surfaceTexture?.release()
+        } catch (e: Exception) {
+            android.util.Log.w("VRRenderer", "Error releasing SurfaceTexture: ${e.message}")
+        }
         surfaceTexture = null
     }
 
@@ -588,14 +622,18 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
      * Pause video playback
      */
     fun pause() {
-        mediaPlayer?.pause()
+        if (!isReleased) {
+            mediaPlayer?.pause()
+        }
     }
 
     /**
      * Resume video playback
      */
     fun resume() {
-        mediaPlayer?.start()
+        if (!isReleased) {
+            mediaPlayer?.start()
+        }
     }
 
     fun setScreenDimensions(width: Int, height: Int) {
@@ -620,6 +658,11 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
      * Updates are throttled to every N frames to reduce overhead.
      */
     private fun updateTimecodeParameters() {
+        // Safety check
+        if (isReleased || mediaPlayer == null) {
+            return
+        }
+
         // Only update every N frames to reduce overhead
         frameCounter++
         if (frameCounter < updateInterval) {
