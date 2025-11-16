@@ -18,6 +18,8 @@ import androidx.appcompat.widget.SwitchCompat
 
 class SettingsActivity : AppCompatActivity() {
 
+    private lateinit var selectVideoFolderButton: Button
+    private lateinit var currentFolderText: TextView
     private lateinit var selectVideoButton: Button
     private lateinit var currentVideoText: TextView
     private lateinit var videoRotationSpinner: Spinner
@@ -39,6 +41,22 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var appVersionText: TextView
     private lateinit var resetButton: Button
     private lateinit var saveButton: Button
+
+    private val folderPickerLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == RESULT_OK) {
+            result.data?.data?.let { treeUri ->
+                contentResolver.takePersistableUriPermission(
+                    treeUri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                )
+                saveVideoFolderUri(treeUri.toString())
+                updateCurrentFolderDisplay()
+                Toast.makeText(this, "Ordner ausgewählt - Videos werden beim Start geladen", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
 
     private val videoPickerLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -66,6 +84,8 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun initViews() {
+        selectVideoFolderButton = findViewById(R.id.selectVideoFolderButton)
+        currentFolderText = findViewById(R.id.currentFolderText)
         selectVideoButton = findViewById(R.id.selectVideoButton)
         currentVideoText = findViewById(R.id.currentVideoText)
         videoRotationSpinner = findViewById(R.id.videoRotationSpinner)
@@ -138,6 +158,10 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun setupListeners() {
+        selectVideoFolderButton.setOnClickListener {
+            openFolderPicker()
+        }
+
         selectVideoButton.setOnClickListener {
             openVideoPicker()
         }
@@ -244,6 +268,10 @@ class SettingsActivity : AppCompatActivity() {
         minSpeedMovingSeekBar.progress = (minSpeedMoving * 100).toInt() // 0.0 - 1.0
         val maxSpeed = prefs.getFloat("max_speed", 1.5f)
         maxSpeedSeekBar.progress = ((maxSpeed - 1.0f) * 100).toInt() // 1.0 - 2.0
+
+        // Update display
+        updateCurrentFolderDisplay()
+        updateCurrentVideoDisplay()
     }
 
     private fun saveSettings() {
@@ -324,5 +352,34 @@ class SettingsActivity : AppCompatActivity() {
             .edit()
             .putString("video_uri", uriString)
             .apply()
+    }
+
+    private fun openFolderPicker() {
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
+        }
+        folderPickerLauncher.launch(intent)
+    }
+
+    private fun saveVideoFolderUri(uriString: String) {
+        getSharedPreferences("VRLAPrefs", Context.MODE_PRIVATE)
+            .edit()
+            .putString("video_folder_uri", uriString)
+            .apply()
+    }
+
+    private fun updateCurrentFolderDisplay() {
+        val prefs = getSharedPreferences("VRLAPrefs", Context.MODE_PRIVATE)
+        val folderUriString = prefs.getString("video_folder_uri", null)
+
+        if (folderUriString != null) {
+            val uri = Uri.parse(folderUriString)
+            // Extract folder name from tree URI
+            val folderName = uri.lastPathSegment?.substringAfter(':') ?: "Ordner"
+            currentFolderText.text = "Ordner: $folderName"
+        } else {
+            currentFolderText.text = "Kein Ordner ausgewählt"
+        }
     }
 }
