@@ -32,6 +32,16 @@ import kotlin.math.max
  */
 class StepController {
 
+    companion object {
+        // Speed calculation thresholds
+        private const val MIN_STEPS_PER_MINUTE = 10f  // Below this = idle
+        private const val MAX_STEPS_PER_MINUTE = 120f // Above this = max speed
+
+        // Decay timing when user stops moving
+        private const val DECAY_START_MS = 3000L  // Start decay after 3 seconds
+        private const val DECAY_DURATION_MS = 5000L // Full decay over 5 seconds
+    }
+
     // Sliding window of step timestamps (milliseconds since epoch)
     private val stepTimestamps = mutableListOf<Long>()
 
@@ -96,19 +106,18 @@ class StepController {
         val stepsPerMinute = stepsInWindow / windowSizeMinutes
 
         targetSpeed = when {
-            stepsPerMinute < 10 -> {
+            stepsPerMinute < MIN_STEPS_PER_MINUTE -> {
                 // No meaningful movement - use minimum speed
-                AppConfig.minSpeed  // Default: 0.4x
+                AppConfig.minSpeed
             }
-            stepsPerMinute >= 120 -> {
+            stepsPerMinute >= MAX_STEPS_PER_MINUTE -> {
                 // Fast jogging - use maximum speed
-                AppConfig.maxSpeed  // Default: 1.5x
+                AppConfig.maxSpeed
             }
             else -> {
                 // Linear interpolation between minSpeedMoving and maxSpeed
-                // At 10 steps/min: minSpeedMoving (0.7x)
-                // At 120 steps/min: maxSpeed (1.5x)
-                val progress = (stepsPerMinute - 10f) / 110f
+                val range = MAX_STEPS_PER_MINUTE - MIN_STEPS_PER_MINUTE
+                val progress = (stepsPerMinute - MIN_STEPS_PER_MINUTE) / range
                 AppConfig.minSpeedMoving + progress * (AppConfig.maxSpeed - AppConfig.minSpeedMoving)
             }
         }
@@ -145,10 +154,11 @@ class StepController {
             val timeSinceLastStep = System.currentTimeMillis() - stepTimestamps.last()
 
             // Determine the final target speed (with decay if stopped)
-            val finalTarget = if (timeSinceLastStep > 3000) {
-                // User stopped moving - apply decay over 5 seconds
-                // decayFactor: 1.0 at 3s, 0.0 at 8s
-                val decayFactor = max(0f, 1f - (timeSinceLastStep - 3000) / 5000f)
+            val finalTarget = if (timeSinceLastStep > DECAY_START_MS) {
+                // User stopped moving - apply decay
+                // decayFactor: 1.0 at DECAY_START_MS, 0.0 at (DECAY_START_MS + DECAY_DURATION_MS)
+                val decayProgress = (timeSinceLastStep - DECAY_START_MS).toFloat() / DECAY_DURATION_MS
+                val decayFactor = max(0f, 1f - decayProgress)
 
                 // Interpolate between minSpeed and targetSpeed based on decay
                 AppConfig.minSpeed + (targetSpeed - AppConfig.minSpeed) * decayFactor

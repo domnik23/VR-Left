@@ -103,22 +103,22 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
         texOffsetHandle = GLES30.glGetUniformLocation(program, "uTexOffsetU")
         texScaleHandle = GLES30.glGetUniformLocation(program, "uTexScaleX")
 
+        // Release old SurfaceTexture to prevent memory leak
+        surfaceTexture?.release()
+
         surfaceTexture = SurfaceTexture(textureId).apply {
             setOnFrameAvailableListener(this@VRRenderer)
         }
 
         surfaceCreated = true
-        android.util.Log.d("VRRenderer", "Surface created, ready for video")
 
         // Check if we need to start a new video or just update existing MediaPlayer's surface
         if (mediaPlayer != null) {
             // MediaPlayer already exists (e.g., returning from Settings)
             // Just update its surface instead of creating a new one
-            android.util.Log.d("VRRenderer", "MediaPlayer exists - updating surface only")
             mediaPlayer?.setSurface(Surface(surfaceTexture))
         } else if (isVideoReadyToStart) {
             // No MediaPlayer yet - start video from scratch
-            android.util.Log.d("VRRenderer", "No MediaPlayer - starting fresh")
             startVideoNow()
         }
     }
@@ -145,8 +145,7 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
         try {
             surfaceTexture?.updateTexImage()
         } catch (e: Exception) {
-            // Context may have been lost during lifecycle transitions
-            android.util.Log.w("VRRenderer", "updateTexImage failed: ${e.message}")
+            // Context may have been lost during lifecycle transitions - silently ignore
             return
         }
 
