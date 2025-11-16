@@ -856,9 +856,16 @@ Kalorien: ${calories}kcal"""
             android.util.Log.d("MainActivity", "New video detected - loading: $savedUri")
 
             if (isVRActive) {
-                // VR already running - restart with new video
+                // VR already running - load new video without full restart
                 vrRenderer.setVideoUri(savedUri!!)
-                restartSession()
+                vrRenderer.loadNewVideo()
+
+                // Reset session stats for new video
+                sessionSteps = 0
+                startTime = System.currentTimeMillis()
+                isVideoStarted = false
+                stepController.reset()
+                finishOverlay.visibility = View.GONE
             } else {
                 // VR not started yet - initialize with new video
                 initializeVRWithVideo()

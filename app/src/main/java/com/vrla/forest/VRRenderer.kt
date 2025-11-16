@@ -581,6 +581,50 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
         }
     }
 
+    /**
+     * Load a completely new video
+     *
+     * Releases the current MediaPlayer and creates a new one with the current videoUri.
+     * Used when switching to a different video file.
+     */
+    fun loadNewVideo() {
+        android.util.Log.d("VRRenderer", "Loading new video: $videoUri")
+
+        if (surfaceTexture == null) {
+            android.util.Log.e("VRRenderer", "Cannot load new video - SurfaceTexture not ready")
+            onVideoError?.invoke("Interner Fehler: Surface nicht bereit")
+            return
+        }
+
+        if (videoUri == null) {
+            android.util.Log.e("VRRenderer", "Cannot load new video - URI is null")
+            onVideoError?.invoke("Kein Video ausgewählt")
+            return
+        }
+
+        try {
+            // Release old MediaPlayer
+            mediaPlayer?.release()
+
+            // Create new MediaPlayer with new video
+            mediaPlayer = MediaPlayer().apply {
+                setDataSource(context, videoUri!!)
+                setSurface(Surface(surfaceTexture))
+                setupMediaListeners(this)
+                prepare()
+                isLooping = false
+                playbackParams = playbackParams.setSpeed(playbackSpeed)
+                setVolume(AppConfig.videoVolume, AppConfig.videoVolume)
+                start()
+            }
+
+            videoEnded = false
+            android.util.Log.d("VRRenderer", "New video loaded successfully")
+        } catch (e: Exception) {
+            handleMediaError(e)
+        }
+    }
+
     fun updateVolume() {
         mediaPlayer?.setVolume(AppConfig.videoVolume, AppConfig.videoVolume)
     }
