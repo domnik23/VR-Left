@@ -1,7 +1,9 @@
 package com.vrla.forest
 
 import android.content.Context
+import android.database.Cursor
 import android.net.Uri
+import android.provider.DocumentsContract
 import android.util.Log
 import java.io.File
 import java.io.IOException
@@ -85,31 +87,34 @@ class TimecodeParameterLoader(private val context: Context) {
     /**
      * Try to load parameter file from the same folder as the video
      *
+     * Uses DocumentsContract API to search for files in the same directory
+     * as the video, even with content:// URIs from MediaStore.
+     *
      * @param videoUri URI of the video file
      * @param paramFileName Name of the parameter file (e.g., "forest_jog.json")
      * @return true if file was found and loaded successfully, false otherwise
      */
     private fun tryLoadFromVideoFolder(videoUri: Uri, paramFileName: String): Boolean {
         return try {
-            // Try to load via ContentResolver for content:// URIs
+            // Try to load via DocumentsContract for content:// URIs
             if (videoUri.scheme == "content") {
-                // Use DocumentFile to access the video's parent directory
-                val videoDocFile = androidx.documentfile.provider.DocumentFile.fromSingleUri(context, videoUri)
-                if (videoDocFile != null && videoDocFile.parentFile != null) {
-                    val parentDir = videoDocFile.parentFile
-                    val paramFile = parentDir?.findFile(paramFileName)
+                Log.d(TAG, "Attempting to find parameter file in video folder via DocumentsContract")
 
-                    if (paramFile != null && paramFile.exists()) {
-                        // Read from URI
-                        val inputStream = context.contentResolver.openInputStream(paramFile.uri)
-                        if (inputStream != null) {
-                            val json = inputStream.bufferedReader().use { it.readText() }
-                            config = TimecodeConfig.fromJson(json)
-                            Log.i(TAG, "Loaded parameters from video folder: ${paramFile.uri}")
-                            Log.i(TAG, "Configuration contains ${config?.timecodes?.size ?: 0} timecode entries")
-                            return true
-                        }
+                // Try to find the JSON file by querying the same directory
+                val foundUri = findFileInSameDirectory(videoUri, paramFileName)
+
+                if (foundUri != null) {
+                    Log.d(TAG, "Found parameter file in same directory: $foundUri")
+                    val inputStream = context.contentResolver.openInputStream(foundUri)
+                    if (inputStream != null) {
+                        val json = inputStream.bufferedReader().use { it.readText() }
+                        config = TimecodeConfig.fromJson(json)
+                        Log.i(TAG, "Loaded parameters from video folder: $foundUri")
+                        Log.i(TAG, "Configuration contains ${config?.timecodes?.size ?: 0} timecode entries")
+                        return true
                     }
+                } else {
+                    Log.d(TAG, "No parameter file found in video folder")
                 }
             }
 
@@ -127,8 +132,136 @@ class TimecodeParameterLoader(private val context: Context) {
 
             false
         } catch (e: Exception) {
-            Log.w(TAG, "Could not load from video folder: ${e.message}")
+            Log.w(TAG, "Could not load from video folder: ${e.message}", e)
             false
+        }
+    }
+
+    /**
+     * Find a file in the same directory as a given content:// URI
+     *
+     * Uses DocumentsContract to query the parent directory and search
+     * for a file with the specified name.
+     *
+     * @param uri URI of a file (e.g., video file)
+     * @param fileName Name of the file to find in the same directory
+     * @return URI of the found file, or null if not found
+     */
+    private fun findFileInSameDirectory(uri: Uri, fileName: String): Uri? {
+        var cursor: Cursor? = null
+        try {
+            // Check if this is a document URI
+            if (!DocumentsContract.isDocumentUri(context, uri)) {
+                Log.d(TAG, "URI is not a document URI, trying MediaStore query")
+                return findFileViaMediaStoreQuery(uri, fileName)
+            }
+
+            // Get the document ID of the video
+            val documentId = DocumentsContract.getDocumentId(uri)
+            Log.d(TAG, "Video document ID: $documentId")
+
+            // Try to extract parent directory from document ID
+            // For MediaStore documents, the ID format is usually: "primary:path/to/file"
+            val parentPath = documentId.substringBeforeLast('/', "")
+            if (parentPath.isEmpty()) {
+                Log.d(TAG, "Could not extract parent path from document ID")
+                return findFileViaMediaStoreQuery(uri, fileName)
+            }
+
+            Log.d(TAG, "Parent path: $parentPath")
+
+            // Build the document ID for the JSON file in the same directory
+            val jsonDocumentId = "$parentPath/$fileName"
+            Log.d(TAG, "Looking for JSON with document ID: $jsonDocumentId")
+
+            // Build a document URI for the JSON file
+            val authority = uri.authority ?: return null
+            val jsonUri = DocumentsContract.buildDocumentUri(authority, jsonDocumentId)
+
+            // Check if the JSON file exists by trying to query it
+            cursor = context.contentResolver.query(
+                jsonUri,
+                arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID),
+                null,
+                null,
+                null
+            )
+
+            if (cursor != null && cursor.moveToFirst()) {
+                Log.d(TAG, "Successfully found JSON file via document URI")
+                cursor.close()
+                return jsonUri
+            }
+
+            cursor?.close()
+            cursor = null
+
+            // Fallback: Try MediaStore query
+            Log.d(TAG, "Document URI approach failed, trying MediaStore query")
+            return findFileViaMediaStoreQuery(uri, fileName)
+
+        } catch (e: Exception) {
+            Log.w(TAG, "Error finding file in same directory: ${e.message}", e)
+            return null
+        } finally {
+            cursor?.close()
+        }
+    }
+
+    /**
+     * Find a file via MediaStore by looking in the same DATA path
+     *
+     * This is a fallback method that queries MediaStore to find files
+     * in the same directory.
+     *
+     * @param videoUri URI of the video file
+     * @param fileName Name of the file to find
+     * @return URI of the found file, or null if not found
+     */
+    private fun findFileViaMediaStoreQuery(videoUri: Uri, fileName: String): Uri? {
+        var cursor: Cursor? = null
+        try {
+            // Query the video URI to get its file path
+            cursor = context.contentResolver.query(
+                videoUri,
+                arrayOf(android.provider.MediaStore.Video.Media.DATA),
+                null,
+                null,
+                null
+            )
+
+            if (cursor != null && cursor.moveToFirst()) {
+                val dataIndex = cursor.getColumnIndex(android.provider.MediaStore.Video.Media.DATA)
+                if (dataIndex >= 0) {
+                    val videoPath = cursor.getString(dataIndex)
+                    cursor.close()
+                    cursor = null
+
+                    if (videoPath != null) {
+                        Log.d(TAG, "Video file path from MediaStore: $videoPath")
+                        val videoFile = File(videoPath)
+                        val parentDir = videoFile.parentFile
+
+                        if (parentDir != null && parentDir.exists()) {
+                            val jsonFile = File(parentDir, fileName)
+                            Log.d(TAG, "Looking for JSON at: ${jsonFile.absolutePath}")
+
+                            if (jsonFile.exists() && jsonFile.canRead()) {
+                                Log.d(TAG, "Found JSON file via MediaStore path")
+                                // Return a file:// URI since we have direct file access
+                                return Uri.fromFile(jsonFile)
+                            }
+                        }
+                    }
+                }
+            }
+
+            return null
+        } catch (e: Exception) {
+            Log.w(TAG, "Error in MediaStore query: ${e.message}", e)
+            return null
+        } finally {
+            cursor?.close()
         }
     }
 
