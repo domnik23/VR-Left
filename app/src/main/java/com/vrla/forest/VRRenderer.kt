@@ -162,10 +162,12 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
         // View matrix approach for 360° video:
         // The sensor rotation describes how the phone is oriented.
         // We want to rotate the world OPPOSITE to the phone rotation.
+        // Therefore we use the INVERSE (transpose) of the head rotation matrix.
 
         if (hasHeadRotation) {
-            // Use the rotation matrix directly (already in correct orientation)
-            System.arraycopy(headRotationMatrix, 0, tempMatrix, 0, 16)
+            // Transpose = inverse for rotation matrices
+            // This makes the world rotate opposite to the head
+            Matrix.transposeM(tempMatrix, 0, headRotationMatrix, 0)
         } else {
             Matrix.setIdentityM(tempMatrix, 0)
         }
