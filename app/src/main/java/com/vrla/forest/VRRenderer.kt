@@ -615,13 +615,16 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
      * Seek to specific position in milliseconds
      */
     fun seekTo(positionMs: Int) {
+        android.util.Log.d("VRRenderer", "seekTo($positionMs) - mediaPlayer=$mediaPlayer, isPlaying=${mediaPlayer?.isPlaying}")
         mediaPlayer?.seekTo(positionMs)
+        android.util.Log.d("VRRenderer", "seekTo() completed (async operation started)")
     }
 
     /**
      * Pause video playback
      */
     fun pause() {
+        android.util.Log.d("VRRenderer", "pause() - isReleased=$isReleased, mediaPlayer=$mediaPlayer")
         if (!isReleased) {
             mediaPlayer?.pause()
         }
@@ -631,6 +634,7 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
      * Resume video playback
      */
     fun resume() {
+        android.util.Log.d("VRRenderer", "resume() - isReleased=$isReleased, mediaPlayer=$mediaPlayer, currentPosition=${mediaPlayer?.currentPosition}")
         if (!isReleased) {
             mediaPlayer?.start()
         }
