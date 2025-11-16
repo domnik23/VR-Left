@@ -344,73 +344,91 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
     private fun startVideoNow() {
         android.util.Log.d("VRRenderer", "startVideoNow() called")
 
+        if (!validateMediaSetup()) return
+
+        try {
+            createAndConfigureMediaPlayer()
+            setBackgroundColor()
+            android.util.Log.d("VRRenderer", "MediaPlayer started successfully")
+        } catch (e: Exception) {
+            handleMediaError(e)
+        }
+    }
+
+    private fun validateMediaSetup(): Boolean {
         if (surfaceTexture == null) {
-            android.util.Log.e("VRRenderer", "SurfaceTexture is STILL NULL!")
+            android.util.Log.e("VRRenderer", "SurfaceTexture is NULL")
             onVideoError?.invoke("Interner Fehler: Surface nicht bereit")
-            return
+            return false
         }
 
         if (videoUri == null) {
-            android.util.Log.e("VRRenderer", "Video URI is NULL!")
+            android.util.Log.e("VRRenderer", "Video URI is NULL")
             onVideoError?.invoke("Kein Video ausgewählt")
-            return
+            return false
         }
 
-        android.util.Log.d("VRRenderer", "SurfaceTexture OK, creating MediaPlayer with URI: $videoUri")
+        return true
+    }
+
+    private fun createAndConfigureMediaPlayer() {
+        android.util.Log.d("VRRenderer", "Creating MediaPlayer with URI: $videoUri")
+
         mediaPlayer?.release()
-
-        try {
-            // NEW METHOD - using external video URI
-            mediaPlayer = MediaPlayer().apply {
-                setDataSource(context, videoUri!!)
-                setSurface(Surface(surfaceTexture))
-
-                // Set error listener
-                setOnErrorListener { _, what, extra ->
-                    android.util.Log.e("VRRenderer", "MediaPlayer error: what=$what extra=$extra")
-                    val errorMsg = when (what) {
-                        MediaPlayer.MEDIA_ERROR_SERVER_DIED -> "Media Server abgestürzt"
-                        MediaPlayer.MEDIA_ERROR_UNKNOWN -> "Unbekannter Fehler beim Abspielen"
-                        else -> "Fehler beim Video-Abspielen (Code: $what)"
-                    }
-                    onVideoError?.invoke(errorMsg)
-                    true
-                }
-
-                prepare()
-                isLooping = false  // Video plays once, then shows finish flag
-                playbackParams = playbackParams.setSpeed(playbackSpeed)
-
-                // Set volume from AppConfig
-                setVolume(AppConfig.videoVolume, AppConfig.videoVolume)
-
-                // Set completion listener
-                setOnCompletionListener {
-                    android.util.Log.d("VRRenderer", "Video completed!")
-                    videoEnded = true
-                    onVideoEnded?.invoke()
-                }
-
-                start()
-            }
-
-            videoEnded = false
-
-            // Hintergrund auf schwarz ändern sobald Video läuft
-            GLES30.glClearColor(0f, 0f, 0f, 1f)
-
-            android.util.Log.d("VRRenderer", "MediaPlayer started successfully")
-        } catch (e: java.io.FileNotFoundException) {
-            android.util.Log.e("VRRenderer", "Video file not found: ${e.message}")
-            onVideoError?.invoke("Video nicht gefunden. Bitte wählen Sie ein anderes Video.")
-        } catch (e: java.io.IOException) {
-            android.util.Log.e("VRRenderer", "IO error loading video: ${e.message}")
-            onVideoError?.invoke("Video konnte nicht geladen werden. Datei beschädigt?")
-        } catch (e: Exception) {
-            android.util.Log.e("VRRenderer", "Error starting video: ${e.message}")
-            e.printStackTrace()
-            onVideoError?.invoke("Fehler beim Video-Start: ${e.message}")
+        mediaPlayer = MediaPlayer().apply {
+            setDataSource(context, videoUri!!)
+            setSurface(Surface(surfaceTexture))
+            setupMediaListeners(this)
+            prepare()
+            isLooping = false
+            playbackParams = playbackParams.setSpeed(playbackSpeed)
+            setVolume(AppConfig.videoVolume, AppConfig.videoVolume)
+            start()
         }
+
+        videoEnded = false
+    }
+
+    private fun setupMediaListeners(player: MediaPlayer) {
+        player.setOnErrorListener { _, what, extra ->
+            android.util.Log.e("VRRenderer", "MediaPlayer error: what=$what extra=$extra")
+            val errorMsg = when (what) {
+                MediaPlayer.MEDIA_ERROR_SERVER_DIED -> "Media Server abgestürzt"
+                MediaPlayer.MEDIA_ERROR_UNKNOWN -> "Unbekannter Fehler beim Abspielen"
+                else -> "Fehler beim Video-Abspielen (Code: $what)"
+            }
+            onVideoError?.invoke(errorMsg)
+            true
+        }
+
+        player.setOnCompletionListener {
+            android.util.Log.d("VRRenderer", "Video completed!")
+            videoEnded = true
+            onVideoEnded?.invoke()
+        }
+    }
+
+    private fun setBackgroundColor() {
+        GLES30.glClearColor(0f, 0f, 0f, 1f)
+    }
+
+    private fun handleMediaError(e: Exception) {
+        val errorMsg = when (e) {
+            is java.io.FileNotFoundException -> {
+                android.util.Log.e("VRRenderer", "Video file not found: ${e.message}")
+                "Video nicht gefunden. Bitte wählen Sie ein anderes Video."
+            }
+            is java.io.IOException -> {
+                android.util.Log.e("VRRenderer", "IO error loading video: ${e.message}")
+                "Video konnte nicht geladen werden. Datei beschädigt?"
+            }
+            else -> {
+                android.util.Log.e("VRRenderer", "Error starting video: ${e.message}")
+                e.printStackTrace()
+                "Fehler beim Video-Start: ${e.message}"
+            }
+        }
+        onVideoError?.invoke(errorMsg)
     }
 
     fun setVideoUri(uri: Uri) {

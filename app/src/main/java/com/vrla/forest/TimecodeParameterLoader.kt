@@ -272,78 +272,57 @@ class TimecodeParameterLoader(private val context: Context) {
      */
     private fun findFileViaMediaStoreQuery(videoUri: Uri, fileName: String): Uri? {
         var cursor: Cursor? = null
-        try {
-            Log.d(TAG, "MediaStore query starting for URI: $videoUri")
+        return try {
+            Log.d(TAG, "Querying MediaStore for: $fileName")
 
-            // Query the video URI to get its file path
             cursor = context.contentResolver.query(
                 videoUri,
                 arrayOf(android.provider.MediaStore.Video.Media.DATA),
-                null,
-                null,
-                null
-            )
-
-            Log.d(TAG, "Cursor received: ${cursor != null}")
-
-            if (cursor != null) {
-                Log.d(TAG, "Cursor count: ${cursor.count}")
-
-                if (cursor.moveToFirst()) {
-                    Log.d(TAG, "Cursor has data, checking columns")
-
-                    val dataIndex = cursor.getColumnIndex(android.provider.MediaStore.Video.Media.DATA)
-                    Log.d(TAG, "DATA column index: $dataIndex")
-
-                    if (dataIndex >= 0) {
-                        val videoPath = cursor.getString(dataIndex)
-                        Log.d(TAG, "Video path from DATA column: ${videoPath ?: "NULL"}")
-
-                        cursor.close()
-                        cursor = null
-
-                        if (videoPath != null) {
-                            Log.d(TAG, "Video file path from MediaStore: $videoPath")
-                            val videoFile = File(videoPath)
-                            val parentDir = videoFile.parentFile
-
-                            Log.d(TAG, "Parent directory: ${parentDir?.absolutePath ?: "NULL"}")
-                            Log.d(TAG, "Parent exists: ${parentDir?.exists()}")
-
-                            if (parentDir != null && parentDir.exists()) {
-                                val jsonFile = File(parentDir, fileName)
-                                Log.d(TAG, "Looking for JSON at: ${jsonFile.absolutePath}")
-                                Log.d(TAG, "JSON file exists: ${jsonFile.exists()}")
-                                Log.d(TAG, "JSON file can read: ${jsonFile.canRead()}")
-
-                                if (jsonFile.exists() && jsonFile.canRead()) {
-                                    Log.i(TAG, "Found JSON file via MediaStore path")
-                                    // Return a file:// URI since we have direct file access
-                                    return Uri.fromFile(jsonFile)
-                                } else {
-                                    Log.d(TAG, "JSON file not found or not readable")
-                                }
-                            } else {
-                                Log.d(TAG, "Parent directory is null or does not exist")
-                            }
-                        } else {
-                            Log.d(TAG, "Video path is NULL - Scoped Storage restriction")
-                        }
-                    } else {
-                        Log.d(TAG, "DATA column not found in cursor")
-                    }
-                } else {
-                    Log.d(TAG, "Cursor is empty (no rows)")
-                }
-            } else {
-                Log.d(TAG, "Query returned NULL cursor")
+                null, null, null
+            ) ?: run {
+                Log.d(TAG, "MediaStore query returned null")
+                return null
             }
 
-            Log.d(TAG, "MediaStore query completed without finding file")
-            return null
+            if (!cursor.moveToFirst()) {
+                Log.d(TAG, "No data in cursor")
+                return null
+            }
+
+            val dataIndex = cursor.getColumnIndex(android.provider.MediaStore.Video.Media.DATA)
+            if (dataIndex < 0) {
+                Log.d(TAG, "DATA column not accessible")
+                return null
+            }
+
+            val videoPath = cursor.getString(dataIndex) ?: run {
+                Log.d(TAG, "Scoped Storage: cannot access video path")
+                return null
+            }
+
+            cursor.close()
+
+            val parentDir = File(videoPath).parentFile ?: run {
+                Log.d(TAG, "Cannot access parent directory")
+                return null
+            }
+
+            if (!parentDir.exists()) {
+                Log.d(TAG, "Parent directory does not exist")
+                return null
+            }
+
+            val jsonFile = File(parentDir, fileName)
+            if (jsonFile.exists() && jsonFile.canRead()) {
+                Log.i(TAG, "Found JSON file: ${jsonFile.absolutePath}")
+                Uri.fromFile(jsonFile)
+            } else {
+                Log.d(TAG, "JSON file not accessible")
+                null
+            }
         } catch (e: Exception) {
-            Log.w(TAG, "Error in MediaStore query: ${e.message}", e)
-            return null
+            Log.w(TAG, "Error querying MediaStore: ${e.message}", e)
+            null
         } finally {
             cursor?.close()
         }

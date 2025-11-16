@@ -170,6 +170,16 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     }
 
     private fun initViews() {
+        findAndBindViews()
+        setupRecyclerView()
+        setupEventListeners()
+        displayVersionInfo()
+        setupGLSurfaceView()
+        setupRendererCallbacks()
+        showOverlay()
+    }
+
+    private fun findAndBindViews() {
         glSurfaceView = findViewById(R.id.glSurfaceView)
         overlayContainer = findViewById(R.id.overlayContainer)
         finishOverlay = findViewById(R.id.finishOverlay)
@@ -184,8 +194,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         finishRestartButton = findViewById(R.id.finishRestartButton)
         finishExitButton = findViewById(R.id.finishExitButton)
         timecodeOverlayText = findViewById(R.id.timecodeOverlayText)
-
-        // Info box and video list
         infoBox = findViewById(R.id.infoBox)
         infoBoxTitle = findViewById(R.id.infoBoxTitle)
         infoBoxText = findViewById(R.id.infoBoxText)
@@ -193,17 +201,18 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         videoRecyclerView = findViewById(R.id.videoRecyclerView)
         selectOtherVideoButton = findViewById(R.id.selectOtherVideoButton)
         cancelVideoListButton = findViewById(R.id.cancelVideoListButton)
+    }
 
-        // Setup video list RecyclerView
+    private fun setupRecyclerView() {
         videoRecyclerView.layoutManager = LinearLayoutManager(this)
+    }
 
-        // Make entire overlay container clickable to open settings
+    private fun setupEventListeners() {
         overlayContainer.setOnClickListener {
             val intent = Intent(this, SettingsActivity::class.java)
             startActivity(intent)
         }
 
-        // Video list buttons
         selectOtherVideoButton.setOnClickListener {
             videoListContainer.visibility = View.GONE
             openVideoPicker()
@@ -214,7 +223,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             finish()
         }
 
-        // Finish overlay buttons
         finishRestartButton.setOnClickListener {
             restartSession()
         }
@@ -222,15 +230,18 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         finishExitButton.setOnClickListener {
             finish()
         }
+    }
 
-        // Set version number
+    private fun displayVersionInfo() {
         try {
             val packageInfo = packageManager.getPackageInfo(packageName, 0)
             versionText.text = "v${packageInfo.versionName}"
         } catch (e: Exception) {
             versionText.text = "v?.?"
         }
+    }
 
+    private fun setupGLSurfaceView() {
         glSurfaceView.setEGLContextClientVersion(3)
         vrRenderer = VRRenderer(this)
         glSurfaceView.setRenderer(vrRenderer)
@@ -242,21 +253,23 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                 resources.displayMetrics.heightPixels
             )
         }
+    }
 
-        // Set video end callback
+    private fun setupRendererCallbacks() {
         vrRenderer.onVideoEnded = {
             runOnUiThread {
                 showFinishOverlay()
             }
         }
 
-        // Set video error callback
         vrRenderer.onVideoError = { errorMessage ->
             runOnUiThread {
                 showVideoErrorDialog(errorMessage)
             }
         }
+    }
 
+    private fun showOverlay() {
         overlayContainer.visibility = View.VISIBLE
     }
 
@@ -473,49 +486,66 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         calibrateOrientation()  // Auto-calibrate on start (v1.3 behavior)
     }
 
-    private fun showGyroscopeWarning() {
-        androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle("Gyroscope/Rotation Sensor fehlt")
-            .setMessage("Ihr Gerät hat keinen Rotation Vector Sensor.\n\n" +
-                    "Dieser Sensor ist ZWINGEND für VR Head Tracking erforderlich.\n\n" +
-                    "Die App kann ohne diesen Sensor nicht funktionieren.")
-            .setPositiveButton("Beenden") { _, _ ->
-                finish()
-            }
-            .setCancelable(false)
-            .show()
-    }
-
-    private fun showStepCounterWarning() {
+    /**
+     * Helper function to show alert dialogs with consistent styling
+     */
+    private fun showAlertDialog(
+        title: String,
+        message: String,
+        positiveButtonText: String = "OK",
+        positiveAction: () -> Unit = {},
+        negativeButtonText: String? = null,
+        negativeAction: (() -> Unit)? = null,
+        isCancelable: Boolean = false
+    ) {
         runOnUiThread {
             androidx.appcompat.app.AlertDialog.Builder(this)
-                .setTitle("Schrittzähler nicht verfügbar")
-                .setMessage("Der Schrittzähler ist auf diesem Gerät nicht verfügbar.\n\n" +
-                        "Die Videogeschwindigkeit wird NICHT automatisch angepasst.\n\n" +
-                        "Empfehlung: Passen Sie die Geschwindigkeiten im Einstellungsmenü (⋮) manuell an.")
-                .setPositiveButton("OK") { dialog, _ ->
-                    dialog.dismiss()
+                .setTitle(title)
+                .setMessage(message)
+                .setPositiveButton(positiveButtonText) { _, _ -> positiveAction() }
+                .apply {
+                    if (negativeButtonText != null && negativeAction != null) {
+                        setNegativeButton(negativeButtonText) { _, _ -> negativeAction() }
+                    }
                 }
-                .setNegativeButton("Beenden") { _, _ ->
-                    finish()
-                }
-                .setCancelable(false)
+                .setCancelable(isCancelable)
                 .show()
         }
     }
 
+    private fun showGyroscopeWarning() {
+        showAlertDialog(
+            title = "Gyroscope/Rotation Sensor fehlt",
+            message = "Ihr Gerät hat keinen Rotation Vector Sensor.\n\n" +
+                    "Dieser Sensor ist ZWINGEND für VR Head Tracking erforderlich.\n\n" +
+                    "Die App kann ohne diesen Sensor nicht funktionieren.",
+            positiveButtonText = "Beenden",
+            positiveAction = { finish() }
+        )
+    }
+
+    private fun showStepCounterWarning() {
+        showAlertDialog(
+            title = "Schrittzähler nicht verfügbar",
+            message = "Der Schrittzähler ist auf diesem Gerät nicht verfügbar.\n\n" +
+                    "Die Videogeschwindigkeit wird NICHT automatisch angepasst.\n\n" +
+                    "Empfehlung: Passen Sie die Geschwindigkeiten im Einstellungsmenü (⋮) manuell an.",
+            positiveButtonText = "OK",
+            positiveAction = { },
+            negativeButtonText = "Beenden",
+            negativeAction = { finish() }
+        )
+    }
+
     private fun showVideoErrorDialog(errorMessage: String) {
-        androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle("Video-Fehler")
-            .setMessage("$errorMessage\n\nMöchten Sie ein anderes Video auswählen?")
-            .setPositiveButton("Video auswählen") { _, _ ->
-                openVideoPicker()
-            }
-            .setNegativeButton("Beenden") { _, _ ->
-                finish()
-            }
-            .setCancelable(false)
-            .show()
+        showAlertDialog(
+            title = "Video-Fehler",
+            message = "$errorMessage\n\nMöchten Sie ein anderes Video auswählen?",
+            positiveButtonText = "Video auswählen",
+            positiveAction = { openVideoPicker() },
+            negativeButtonText = "Beenden",
+            negativeAction = { finish() }
+        )
     }
 
     private fun calibrateOrientation() {
