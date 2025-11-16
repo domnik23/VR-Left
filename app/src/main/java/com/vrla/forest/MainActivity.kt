@@ -595,16 +595,16 @@ Kalorien: ${calories}kcal"""
                         android.view.Surface.ROTATION_270 -> {
                             // Landscape-Right: Phone rotated 270° (or -90°)
                             // VR headset coordinate system:
-                            //   X: Down (was -Y), Y: Left (was X), Z: Out of screen
-                            // Remapping: AXIS_Y → new X, AXIS_X → new Y
-                            Pair(SensorManager.AXIS_Y, SensorManager.AXIS_X)
+                            //   X: Down (was -Y), Y: Right (was -X), Z: Out of screen
+                            // Remapping: AXIS_Y → new X, AXIS_MINUS_X → new Y
+                            Pair(SensorManager.AXIS_Y, SensorManager.AXIS_MINUS_X)
                         }
                         else -> {
                             // Landscape-Left: Phone rotated 90° (default)
                             // VR headset coordinate system:
-                            //   X: Up (was Y), Y: Right (was X), Z: Out of screen
-                            // Remapping: AXIS_MINUS_Y → new X, AXIS_MINUS_X → new Y
-                            Pair(SensorManager.AXIS_MINUS_Y, SensorManager.AXIS_MINUS_X)
+                            //   X: Up (was Y), Y: Left (was -X), Z: Out of screen
+                            // Remapping: AXIS_MINUS_Y → new X, AXIS_X → new Y
+                            Pair(SensorManager.AXIS_MINUS_Y, SensorManager.AXIS_X)
                         }
                     }
 
