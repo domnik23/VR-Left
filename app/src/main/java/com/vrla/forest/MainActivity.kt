@@ -640,12 +640,21 @@ Kalorien: ${calories}kcal"""
             timecodeOverlayText.text = overlay.text
             timecodeOverlayText.textSize = overlay.textSize
 
-            // Parse colors
+            // Parse text color only - background is handled by drawable
             try {
-                timecodeOverlayText.setTextColor(android.graphics.Color.parseColor(overlay.textColor))
-                timecodeOverlayText.setBackgroundColor(android.graphics.Color.parseColor(overlay.backgroundColor))
+                // Use white text color for better visibility on pink background
+                val textColor = overlay.textColor.takeIf { it.isNotEmpty() } ?: "#FFFFFF"
+                timecodeOverlayText.setTextColor(android.graphics.Color.parseColor(textColor))
+
+                // DON'T call setBackgroundColor() - it would override the drawable!
+                // The drawable (timecode_overlay_background.xml) handles:
+                // - Pink semi-transparent background
+                // - Pink outline (3dp)
+                // - Rounded corners (8dp)
             } catch (e: Exception) {
                 android.util.Log.w("MainActivity", "Error parsing overlay colors: ${e.message}")
+                // Fallback to white text
+                timecodeOverlayText.setTextColor(android.graphics.Color.parseColor("#FFFFFF"))
             }
 
             // Set position (gravity)
