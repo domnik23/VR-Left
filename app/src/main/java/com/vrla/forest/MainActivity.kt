@@ -55,6 +55,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
     // Info box and video list
     private lateinit var infoBox: View
+    private lateinit var infoBoxTitle: TextView
     private lateinit var infoBoxText: TextView
     private lateinit var videoListContainer: View
     private lateinit var videoRecyclerView: RecyclerView
@@ -179,6 +180,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
         // Info box and video list
         infoBox = findViewById(R.id.infoBox)
+        infoBoxTitle = findViewById(R.id.infoBoxTitle)
         infoBoxText = findViewById(R.id.infoBoxText)
         videoListContainer = findViewById(R.id.videoListContainer)
         videoRecyclerView = findViewById(R.id.videoRecyclerView)
