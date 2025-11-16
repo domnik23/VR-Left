@@ -580,19 +580,38 @@ Kalorien: ${calories}kcal"""
                     SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values)
 
                     // Remap coordinate system for landscape VR headset orientation
-                    // Phone is rotated 90° LEFT (counterclockwise) when placed in headset
+                    // The remapping depends on which landscape orientation the phone is in
                     //
                     // Android default coordinate system (portrait):
                     //   X: Right, Y: Up, Z: Out of screen
                     //
-                    // VR headset coordinate system (landscape):
-                    //   X: Up (was Y), Y: Left (was -X), Z: Out of screen
-                    //
-                    // Remapping: AXIS_MINUS_Y → new X, AXIS_X → new Y
+                    // Display rotation detection:
+                    // - ROTATION_90: Phone rotated LEFT (normal landscape)
+                    // - ROTATION_270: Phone rotated RIGHT (landscape flipped 180°)
+                    @Suppress("DEPRECATION")
+                    val displayRotation = windowManager.defaultDisplay.rotation
+
+                    val (axisX, axisY) = when (displayRotation) {
+                        android.view.Surface.ROTATION_270 -> {
+                            // Landscape-Right: Phone rotated 270° (or -90°)
+                            // VR headset coordinate system:
+                            //   X: Down (was -Y), Y: Right (was -X), Z: Out of screen
+                            // Remapping: AXIS_Y → new X, AXIS_MINUS_X → new Y
+                            Pair(SensorManager.AXIS_Y, SensorManager.AXIS_MINUS_X)
+                        }
+                        else -> {
+                            // Landscape-Left: Phone rotated 90° (default)
+                            // VR headset coordinate system:
+                            //   X: Up (was Y), Y: Left (was -X), Z: Out of screen
+                            // Remapping: AXIS_MINUS_Y → new X, AXIS_X → new Y
+                            Pair(SensorManager.AXIS_MINUS_Y, SensorManager.AXIS_X)
+                        }
+                    }
+
                     SensorManager.remapCoordinateSystem(
                         rotationMatrix,
-                        SensorManager.AXIS_MINUS_Y,  // new X-axis (pointing up in landscape)
-                        SensorManager.AXIS_X,        // new Y-axis (pointing left in landscape)
+                        axisX,  // new X-axis
+                        axisY,  // new Y-axis
                         remappedRotationMatrix
                     )
 
