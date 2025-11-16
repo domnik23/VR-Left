@@ -83,8 +83,6 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
     private val updateInterval = 30 // Update timecode parameters every 30 frames (~0.5 seconds at 60fps)
 
     override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {
-        android.util.Log.d("VRRenderer", "onSurfaceCreated")
-
         // Reset released flag if surface is being recreated
         isReleased = false
 
@@ -124,7 +122,6 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
     }
 
     override fun onSurfaceChanged(gl: GL10?, width: Int, height: Int) {
-        android.util.Log.d("VRRenderer", "onSurfaceChanged: $width x $height")
         screenWidth = width
         screenHeight = height
         GLES30.glViewport(0, 0, width, height)
@@ -360,25 +357,19 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
     }
 
     fun startVideo() {
-        android.util.Log.d("VRRenderer", "startVideo() requested")
         isVideoReadyToStart = true
 
         if (surfaceCreated && surfaceTexture != null) {
             startVideoNow()
-        } else {
-            android.util.Log.d("VRRenderer", "Surface not ready yet, will start when ready")
         }
     }
 
     private fun startVideoNow() {
-        android.util.Log.d("VRRenderer", "startVideoNow() called")
-
         if (!validateMediaSetup()) return
 
         try {
             createAndConfigureMediaPlayer()
             setBackgroundColor()
-            android.util.Log.d("VRRenderer", "MediaPlayer started successfully")
         } catch (e: Exception) {
             handleMediaError(e)
         }
@@ -401,8 +392,6 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
     }
 
     private fun createAndConfigureMediaPlayer() {
-        android.util.Log.d("VRRenderer", "Creating MediaPlayer with URI: $videoUri")
-
         mediaPlayer?.release()
         mediaPlayer = MediaPlayer().apply {
             setDataSource(context, videoUri!!)
@@ -431,7 +420,6 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
         }
 
         player.setOnCompletionListener {
-            android.util.Log.d("VRRenderer", "Video completed!")
             videoEnded = true
             onVideoEnded?.invoke()
         }
@@ -462,7 +450,6 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
 
     fun setVideoUri(uri: Uri) {
         videoUri = uri
-        android.util.Log.d("VRRenderer", "Video URI set to: $uri")
     }
 
     fun setPlaybackSpeed(speed: Float) {
@@ -556,7 +543,6 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
             // This will make current orientation the new "forward" direction
             Matrix.transposeM(calibrationMatrix, 0, headRotationMatrix, 0)
             isCalibrated = true
-            android.util.Log.d("VRRenderer", "Orientation calibrated")
         }
     }
 
@@ -566,7 +552,6 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
     }
 
     fun restartVideo() {
-        android.util.Log.d("VRRenderer", "Restarting video from beginning")
         mediaPlayer?.let {
             try {
                 it.seekTo(0)
@@ -588,8 +573,6 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
      * Used when switching to a different video file.
      */
     fun loadNewVideo() {
-        android.util.Log.d("VRRenderer", "Loading new video: $videoUri")
-
         if (surfaceTexture == null) {
             android.util.Log.e("VRRenderer", "Cannot load new video - SurfaceTexture not ready")
             onVideoError?.invoke("Interner Fehler: Surface nicht bereit")
@@ -619,7 +602,6 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
             }
 
             videoEnded = false
-            android.util.Log.d("VRRenderer", "New video loaded successfully")
         } catch (e: Exception) {
             handleMediaError(e)
         }
@@ -635,7 +617,6 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
         }
 
         isReleased = true
-        android.util.Log.d("VRRenderer", "Releasing renderer resources")
 
         // Release MediaPlayer first (it uses the SurfaceTexture)
         try {
@@ -665,16 +646,13 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
      * Seek to specific position in milliseconds
      */
     fun seekTo(positionMs: Int) {
-        android.util.Log.d("VRRenderer", "seekTo($positionMs) - mediaPlayer=$mediaPlayer, isPlaying=${mediaPlayer?.isPlaying}")
         mediaPlayer?.seekTo(positionMs)
-        android.util.Log.d("VRRenderer", "seekTo() completed (async operation started)")
     }
 
     /**
      * Pause video playback
      */
     fun pause() {
-        android.util.Log.d("VRRenderer", "pause() - isReleased=$isReleased, mediaPlayer=$mediaPlayer")
         if (!isReleased) {
             mediaPlayer?.pause()
         }
@@ -684,7 +662,6 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
      * Resume video playback
      */
     fun resume() {
-        android.util.Log.d("VRRenderer", "resume() - isReleased=$isReleased, mediaPlayer=$mediaPlayer, currentPosition=${mediaPlayer?.currentPosition}")
         if (!isReleased) {
             mediaPlayer?.start()
         }
@@ -702,7 +679,6 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
      */
     fun setTimecodeLoader(loader: TimecodeParameterLoader?) {
         timecodeLoader = loader
-        android.util.Log.d("VRRenderer", "TimecodeLoader set: ${loader != null}")
     }
 
     /**

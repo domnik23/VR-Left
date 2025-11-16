@@ -104,7 +104,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                     Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
                 )
                 videoPrefs.saveVideoFolderUri(treeUri)
-                android.util.Log.d("MainActivity", "Folder selected: $treeUri")
 
                 // Show video list from the selected folder
                 showVideoListFromFolder(treeUri)
@@ -147,7 +146,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        android.util.Log.d("MainActivity", "═══ onCreate() START ═══")
 
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         setContentView(R.layout.activity_main)
@@ -163,7 +161,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
         // Request all permissions first, then load video
         checkAllPermissions()
-        android.util.Log.d("MainActivity", "═══ onCreate() END ═══")
     }
 
     private fun checkAllPermissions() {
@@ -357,25 +354,29 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         }
     }
 
+    /**
+     * Find and load video based on saved preferences
+     *
+     * Priority order:
+     * 1. Previously saved video URI - auto-load on app restart
+     * 2. Previously saved folder URI - show video list
+     * 3. First-time setup - prompt user to select folder
+     */
     private fun findAndLoadVideo() {
         // PRIORITY 1: Check if we have a previously saved video (from any source)
         // This ensures the video loads automatically on app restart
         val savedUri = videoPrefs.getSavedVideoUri()
-        android.util.Log.d("MainActivity", "findAndLoadVideo() - savedUri from prefs: $savedUri")
         if (savedUri != null) {
             try {
                 contentResolver.openInputStream(savedUri)?.close()
                 selectedVideoUri = savedUri
-                android.util.Log.d("MainActivity", "Auto-loading saved video - selectedVideoUri SET to: $selectedVideoUri")
                 initializeVRWithVideo()
                 return
             } catch (e: Exception) {
-                android.util.Log.w("MainActivity", "Saved video no longer accessible: ${e.message}")
                 // Video is gone - clear it and fall through to folder check
                 videoPrefs.clearVideoUri()
             }
         }
-        android.util.Log.d("MainActivity", "findAndLoadVideo() - No saved URI, continuing to folder/first-time setup")
 
         // PRIORITY 2: Check if a video folder is selected (for first-time setup)
         val folderUri = videoPrefs.getVideoFolderUri()
@@ -392,7 +393,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                     "Ordner-Zugriff verloren.\nBitte wähle den Ordner neu in Einstellungen (⋮)",
                     durationMs = 0
                 )
-                android.util.Log.w("MainActivity", "Folder permissions lost for URI: $folderUri")
                 // Fall through to first-time setup
             }
         }
@@ -442,7 +442,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                 if (cursor.moveToFirst()) {
                     val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Video.Media._ID)
                     val id = cursor.getLong(idColumn)
-                    android.util.Log.d("MainActivity", "Found default video: $DEFAULT_VIDEO_NAME")
                     return Uri.withAppendedPath(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, id.toString())
                 }
             }
@@ -462,21 +461,25 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         videoPickerLauncher.launch(intent)
     }
 
+    /**
+     * Initialize VR rendering with selected video
+     * Starts VR experience after a short delay to ensure OpenGL is ready
+     */
     private fun initializeVRWithVideo() {
-        android.util.Log.d("MainActivity", "initializeVRWithVideo() - selectedVideoUri: $selectedVideoUri")
         // Start VR after short delay (so OpenGL has time)
         glSurfaceView.postDelayed({
             startVRExperience()
         }, 500)
     }
 
+    /**
+     * Start VR experience with video playback
+     * Sets up renderer, timecode loader, and begins playback
+     */
     private fun startVRExperience() {
         if (isVRActive) {
-            android.util.Log.d("MainActivity", "startVRExperience() - SKIPPED (already active)")
-            return
+            return  // Already active
         }
-
-        android.util.Log.d("MainActivity", "startVRExperience() - Starting with selectedVideoUri: $selectedVideoUri")
 
         // Check if rotation sensor is available (CRITICAL for VR)
         if (rotationVector == null) {
@@ -493,18 +496,12 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             if (videoFileName != null) {
                 // Get folder tree URI if available
                 val folderTreeUri = videoPrefs.getVideoFolderUri()
-                if (folderTreeUri != null) {
-                    android.util.Log.d("MainActivity", "Using video folder URI: $folderTreeUri")
-                } else {
-                    android.util.Log.d("MainActivity", "No video folder selected - select folder in Settings for automatic parameter loading")
-                }
 
+                // Try to load timecode parameters for this video
                 timecodeLoader = TimecodeParameterLoader(this)
                 if (timecodeLoader!!.loadParametersForVideo(videoFileName, uri, folderTreeUri)) {
-                    android.util.Log.d("MainActivity", "Loaded timecode parameters for $videoFileName")
                     vrRenderer.setTimecodeLoader(timecodeLoader)
                 } else {
-                    android.util.Log.d("MainActivity", "No timecode parameters found for $videoFileName")
                     timecodeLoader = null
                 }
             }
@@ -527,7 +524,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         // Video will start immediately (video starts on app launch)
         isVideoStarted = true
         vrRenderer.startVideo()
-        android.util.Log.d("MainActivity", "Starting video immediately...")
 
         startUIUpdateLoop()
         calibrateOrientation()  // Auto-calibrate on start (v1.3 behavior)
@@ -649,9 +645,11 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         return super.onKeyDown(keyCode, event)
     }
 
+    /**
+     * Restart current session
+     * Resets stats and restarts video from beginning
+     */
     private fun restartSession() {
-        android.util.Log.d("MainActivity", "Restarting session")
-
         // Reset stats
         sessionSteps = 0
         startTime = System.currentTimeMillis()
@@ -679,8 +677,6 @@ Kalorien: ${calories}kcal"""
 
         finishText.text = finishMessage
         finishOverlay.visibility = View.VISIBLE
-
-        android.util.Log.d("MainActivity", "Video finished - showing completion overlay")
     }
 
     private fun startUIUpdateLoop() {
@@ -802,7 +798,6 @@ Kalorien: ${calories}kcal"""
             Sensor.TYPE_STEP_COUNTER -> {
                 if (totalSteps == 0) {
                     totalSteps = event.values[0].toInt()
-                    android.util.Log.d("MainActivity", "Initial step count: $totalSteps")
                 } else {
                     val currentTotal = event.values[0].toInt()
                     val newSteps = currentTotal - totalSteps
@@ -815,10 +810,7 @@ Kalorien: ${calories}kcal"""
                         if (!isVideoStarted) {
                             isVideoStarted = true
                             vrRenderer.startVideo()
-                            android.util.Log.d("MainActivity", "First step detected! Starting video...")
                         }
-
-                        android.util.Log.d("MainActivity", "Steps: $sessionSteps")
                     }
                 }
             }
@@ -827,9 +819,17 @@ Kalorien: ${calories}kcal"""
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
 
+    /**
+     * Activity lifecycle: Resume
+     *
+     * Handles returning from Settings:
+     * - Reloads configuration from preferences
+     * - Checks if video was changed (using flag, not URI comparison)
+     * - Loads new video if changed, otherwise resumes playback at saved position
+     * - Re-registers sensor listeners
+     */
     override fun onResume() {
         super.onResume()
-        android.util.Log.d("MainActivity", "═══ onResume() START ═══")
         glSurfaceView.onResume()
 
         // Reload settings when returning from SettingsActivity
@@ -838,15 +838,10 @@ Kalorien: ${calories}kcal"""
         // Check if video was changed in Settings using flag (more reliable than URI comparison)
         val videoChanged = videoPrefs.checkAndClearVideoChangedFlag()
 
-        android.util.Log.d("MainActivity", "onResume - videoChanged flag: $videoChanged")
-        android.util.Log.d("MainActivity", "onResume - isVRActive: $isVRActive")
-        android.util.Log.d("MainActivity", "onResume - savedPlaybackPosition: $savedPlaybackPosition")
-
         if (videoChanged) {
             // New video selected in Settings
             val savedUri = videoPrefs.getSavedVideoUri()
             selectedVideoUri = savedUri
-            android.util.Log.d("MainActivity", "New video detected - loading: $savedUri")
 
             if (isVRActive) {
                 // VR already running - load new video without full restart
@@ -869,7 +864,6 @@ Kalorien: ${calories}kcal"""
             if (isVRActive) {
                 if (savedPlaybackPosition > 0) {
                     vrRenderer.seekTo(savedPlaybackPosition)
-                    android.util.Log.d("MainActivity", "Restored playback position: $savedPlaybackPosition ms")
                     savedPlaybackPosition = 0 // Clear after restore
                 }
                 // Always resume video when returning from settings
@@ -883,24 +877,25 @@ Kalorien: ${calories}kcal"""
         if (isVRActive) {
             registerSensorListeners()
         }
-
-        android.util.Log.d("MainActivity", "═══ onResume() END ═══")
     }
 
+    /**
+     * Activity lifecycle: Pause
+     *
+     * Saves current playback position and pauses video/sensors
+     * Position is restored in onResume() if video hasn't changed
+     */
     override fun onPause() {
         super.onPause()
-        android.util.Log.d("MainActivity", "═══ onPause() START ═══")
 
         // Save current playback position before pausing
         if (isVRActive) {
             savedPlaybackPosition = vrRenderer.getCurrentPosition()
             vrRenderer.pause()
-            android.util.Log.d("MainActivity", "Saved playback position: $savedPlaybackPosition ms")
         }
 
         glSurfaceView.onPause()
         sensorManager.unregisterListener(this)
-        android.util.Log.d("MainActivity", "═══ onPause() END ═══")
     }
 
     override fun onDestroy() {
