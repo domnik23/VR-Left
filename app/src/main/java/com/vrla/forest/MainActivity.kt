@@ -843,24 +843,29 @@ Kalorien: ${calories}kcal"""
         android.util.Log.d("MainActivity", "onResume - selectedVideoUri: $selectedVideoUri")
         android.util.Log.d("MainActivity", "onResume - URIs equal as strings: ${savedUri?.toString() == selectedVideoUri?.toString()}")
 
-        val videoChanged = savedUri != null &&
-                          selectedVideoUri != null &&
-                          savedUri.toString() != selectedVideoUri.toString() &&
-                          isVRActive
+        // Check if video changed - handles both new video selection and first-time setup
+        val videoChanged = savedUri != null && savedUri.toString() != selectedVideoUri?.toString()
 
         android.util.Log.d("MainActivity", "onResume - videoChanged: $videoChanged")
         android.util.Log.d("MainActivity", "onResume - isVRActive: $isVRActive")
         android.util.Log.d("MainActivity", "onResume - savedPlaybackPosition: $savedPlaybackPosition")
 
         if (videoChanged) {
-            // New video selected - reload and reset
+            // New video selected in Settings or first video selection
             selectedVideoUri = savedUri
-            android.util.Log.d("MainActivity", "New video detected - reloading: $savedUri")
-            vrRenderer.setVideoUri(savedUri!!)
-            restartSession()
+            android.util.Log.d("MainActivity", "New video detected - loading: $savedUri")
+
+            if (isVRActive) {
+                // VR already running - restart with new video
+                vrRenderer.setVideoUri(savedUri!!)
+                restartSession()
+            } else {
+                // VR not started yet - initialize with new video
+                initializeVRWithVideo()
+            }
             savedPlaybackPosition = 0 // Reset position for new video
         } else {
-            // Resume playback and restore position if available
+            // Same video - resume playback and restore position if available
             if (isVRActive) {
                 if (savedPlaybackPosition > 0) {
                     vrRenderer.seekTo(savedPlaybackPosition)
