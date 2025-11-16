@@ -128,9 +128,8 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="center"
-        android:padding="6dp"
-        android:background="#30FF69B4"
-        android:textColor="#FFFFFF"
+        android:background="@drawable/timecode_overlay_background"
+        android:textColor="#FF69B4"
         android:textSize="13sp"
         android:textAlignment="center"
         android:visibility="gone" />
