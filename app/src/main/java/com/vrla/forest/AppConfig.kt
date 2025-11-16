@@ -58,11 +58,11 @@ object AppConfig {
      * Video orientation correction
      *
      * Rotation offset applied to model matrix to fix video orientation.
-     * Default: -90° (pitch down) to correct for camera pointing upward.
+     * Default: 90° (pitch up) to correct for camera orientation with new sensor remapping.
      *
      * This rotates the 360° sphere around X-axis (pitch) before head tracking is applied.
      */
-    @Volatile var videoRotation = -90f
+    @Volatile var videoRotation = 90f
 
     // ============================================================
     // SPEED SETTINGS
@@ -245,7 +245,7 @@ object AppConfig {
             // Video settings
             videoVolume = prefs.getInt("video_volume", 50) / 100f
             stereoMode = prefs.getBoolean("stereo_mode", false)
-            videoRotation = prefs.getFloat("video_rotation", -90f)
+            videoRotation = prefs.getFloat("video_rotation", 90f)
 
             // VR settings
             ipd = prefs.getFloat("ipd", 0.064f)

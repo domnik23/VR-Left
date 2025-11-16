@@ -218,7 +218,7 @@ class SettingsActivity : AppCompatActivity() {
         val prefs = getSharedPreferences("VRLAPrefs", Context.MODE_PRIVATE)
 
         // Video
-        val rotation = prefs.getFloat("video_rotation", -90f)
+        val rotation = prefs.getFloat("video_rotation", 90f)
         videoRotationSpinner.setSelection(when (rotation) {
             0f -> 0    // 0°
             90f -> 1   // 90° CW
@@ -296,7 +296,7 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun resetToDefaults() {
-        videoRotationSpinner.setSelection(3) // -90° (Default to fix rotation issue)
+        videoRotationSpinner.setSelection(1) // 90° CW (Default with new sensor remapping)
         volumeSeekBar.progress = 50
         stereoSwitch.isChecked = false
         ipdSeekBar.progress = 14 // 64mm
