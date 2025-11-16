@@ -835,23 +835,16 @@ Kalorien: ${calories}kcal"""
         // Reload settings when returning from SettingsActivity
         AppConfig.loadFromPreferences(this)
 
-        // Check if video URI changed (compare as strings to avoid object comparison issues)
-        val savedUri = videoPrefs.getSavedVideoUri()
+        // Check if video was changed in Settings using flag (more reliable than URI comparison)
+        val videoChanged = videoPrefs.checkAndClearVideoChangedFlag()
 
-        // Debug logging
-        android.util.Log.d("MainActivity", "onResume - savedUri: $savedUri")
-        android.util.Log.d("MainActivity", "onResume - selectedVideoUri: $selectedVideoUri")
-        android.util.Log.d("MainActivity", "onResume - URIs equal as strings: ${savedUri?.toString() == selectedVideoUri?.toString()}")
-
-        // Check if video changed - handles both new video selection and first-time setup
-        val videoChanged = savedUri != null && savedUri.toString() != selectedVideoUri?.toString()
-
-        android.util.Log.d("MainActivity", "onResume - videoChanged: $videoChanged")
+        android.util.Log.d("MainActivity", "onResume - videoChanged flag: $videoChanged")
         android.util.Log.d("MainActivity", "onResume - isVRActive: $isVRActive")
         android.util.Log.d("MainActivity", "onResume - savedPlaybackPosition: $savedPlaybackPosition")
 
         if (videoChanged) {
-            // New video selected in Settings or first video selection
+            // New video selected in Settings
+            val savedUri = videoPrefs.getSavedVideoUri()
             selectedVideoUri = savedUri
             android.util.Log.d("MainActivity", "New video detected - loading: $savedUri")
 

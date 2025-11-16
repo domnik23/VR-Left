@@ -18,6 +18,8 @@ import androidx.appcompat.widget.SwitchCompat
 
 class SettingsActivity : AppCompatActivity() {
 
+    private lateinit var videoPrefs: VideoPreferences
+
     private lateinit var selectVideoFolderButton: Button
     private lateinit var currentFolderText: TextView
     private lateinit var selectVideoButton: Button
@@ -79,6 +81,9 @@ class SettingsActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_settings)
+
+        // Initialize video preferences
+        videoPrefs = VideoPreferences(this)
 
         initViews()
         loadSettings()
@@ -373,10 +378,8 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun saveVideoUri(uriString: String) {
-        getSharedPreferences("VRLAPrefs", Context.MODE_PRIVATE)
-            .edit()
-            .putString("video_uri", uriString)
-            .apply()
+        // Use VideoPreferences to save URI and set the video changed flag
+        videoPrefs.saveVideoUri(uriString)
     }
 
     private fun openFolderPicker() {
