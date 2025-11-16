@@ -823,13 +823,18 @@ Kalorien: ${calories}kcal"""
         // Reload settings when returning from SettingsActivity
         AppConfig.loadFromPreferences(this)
 
-        // Check if video URI changed
+        // Check if video URI changed (compare as strings to avoid object comparison issues)
         val savedUri = videoPrefs.getSavedVideoUri()
-        if (savedUri != null && savedUri != selectedVideoUri && isVRActive) {
+        val videoChanged = savedUri != null &&
+                          selectedVideoUri != null &&
+                          savedUri.toString() != selectedVideoUri.toString() &&
+                          isVRActive
+
+        if (videoChanged) {
             // New video selected - reload and reset
             selectedVideoUri = savedUri
             android.util.Log.d("MainActivity", "New video detected - reloading: $savedUri")
-            vrRenderer.setVideoUri(savedUri)
+            vrRenderer.setVideoUri(savedUri!!)
             restartSession()
             savedPlaybackPosition = 0 // Reset position for new video
         } else {
