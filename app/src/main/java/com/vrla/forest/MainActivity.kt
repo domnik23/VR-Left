@@ -47,6 +47,10 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private lateinit var settingsButton: TextView
     private lateinit var finishRestartButton: android.widget.Button
     private lateinit var finishExitButton: android.widget.Button
+    private lateinit var timecodeOverlayText: TextView
+
+    // Timecode parameter loading
+    private var timecodeLoader: TimecodeParameterLoader? = null
 
     // Volume button double-press detection
     private var lastVolumeUpPressTime = 0L
@@ -159,6 +163,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         settingsButton = findViewById(R.id.settingsButton)
         finishRestartButton = findViewById(R.id.finishRestartButton)
         finishExitButton = findViewById(R.id.finishExitButton)
+        timecodeOverlayText = findViewById(R.id.timecodeOverlayText)
 
         // Settings button click
         settingsButton.setOnClickListener {
@@ -368,6 +373,19 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         // Set video URI in renderer before starting
         selectedVideoUri?.let { uri ->
             vrRenderer.setVideoUri(uri)
+
+            // Try to load timecode parameters for this video
+            val videoFileName = getVideoFileName(uri)
+            if (videoFileName != null) {
+                timecodeLoader = TimecodeParameterLoader(this)
+                if (timecodeLoader!!.loadParametersForVideo(videoFileName)) {
+                    android.util.Log.d("MainActivity", "Loaded timecode parameters for $videoFileName")
+                    vrRenderer.setTimecodeLoader(timecodeLoader)
+                } else {
+                    android.util.Log.d("MainActivity", "No timecode parameters found for $videoFileName")
+                    timecodeLoader = null
+                }
+            }
         }
 
         isVRActive = true
@@ -548,6 +566,38 @@ Kalorien: ${calories}kcal"""
         caloriesText.text = String.format("%dkcal", calories)
 
         vrRenderer.setPlaybackSpeed(currentSpeed)
+
+        // Update timecode overlay
+        updateTimecodeOverlay()
+    }
+
+    private fun updateTimecodeOverlay() {
+        val overlay = vrRenderer.getCurrentOverlay()
+
+        if (overlay != null) {
+            timecodeOverlayText.text = overlay.text
+            timecodeOverlayText.textSize = overlay.textSize
+
+            // Parse colors
+            try {
+                timecodeOverlayText.setTextColor(android.graphics.Color.parseColor(overlay.textColor))
+                timecodeOverlayText.setBackgroundColor(android.graphics.Color.parseColor(overlay.backgroundColor))
+            } catch (e: Exception) {
+                android.util.Log.w("MainActivity", "Error parsing overlay colors: ${e.message}")
+            }
+
+            // Set position (gravity)
+            val gravity = when (overlay.position.lowercase()) {
+                "top" -> android.view.Gravity.TOP or android.view.Gravity.CENTER_HORIZONTAL
+                "bottom" -> android.view.Gravity.BOTTOM or android.view.Gravity.CENTER_HORIZONTAL
+                else -> android.view.Gravity.CENTER
+            }
+            (timecodeOverlayText.layoutParams as android.widget.FrameLayout.LayoutParams).gravity = gravity
+
+            timecodeOverlayText.visibility = View.VISIBLE
+        } else {
+            timecodeOverlayText.visibility = View.GONE
+        }
     }
 
     private fun formatTime(seconds: Long): String {
@@ -669,5 +719,32 @@ Kalorien: ${calories}kcal"""
     override fun onDestroy() {
         super.onDestroy()
         vrRenderer.release()
+    }
+
+    /**
+     * Extract filename from video URI
+     *
+     * @param uri Video URI
+     * @return Filename (e.g., "forest_jog.mp4") or null if cannot be determined
+     */
+    private fun getVideoFileName(uri: Uri): String? {
+        return try {
+            // Try to get filename from content resolver
+            val cursor: Cursor? = contentResolver.query(uri, null, null, null, null)
+            cursor?.use {
+                if (it.moveToFirst()) {
+                    val displayNameIndex = it.getColumnIndex(MediaStore.Video.Media.DISPLAY_NAME)
+                    if (displayNameIndex >= 0) {
+                        return it.getString(displayNameIndex)
+                    }
+                }
+            }
+
+            // Fallback: extract from URI path
+            uri.lastPathSegment
+        } catch (e: Exception) {
+            android.util.Log.w("MainActivity", "Error extracting filename from URI: ${e.message}")
+            null
+        }
     }
 }

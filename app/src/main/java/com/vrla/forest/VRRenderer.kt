@@ -76,6 +76,11 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
     var onVideoEnded: (() -> Unit)? = null
     var onVideoError: ((String) -> Unit)? = null
 
+    // Timecode parameter loading
+    private var timecodeLoader: TimecodeParameterLoader? = null
+    private var frameCounter = 0
+    private val updateInterval = 30 // Update timecode parameters every 30 frames (~0.5 seconds at 60fps)
+
     override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {
         android.util.Log.d("VRRenderer", "onSurfaceCreated")
         GLES30.glClearColor(1f, 0f, 0f, 1f)  // ROT für Debug
@@ -121,6 +126,9 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
         // Always update texture (safe to call even if no new frame available)
         // This prevents video freezing issues caused by missed onFrameAvailable callbacks
         surfaceTexture?.updateTexImage()
+
+        // Update timecode parameters periodically
+        updateTimecodeParameters()
 
         GLES30.glUseProgram(program)
         setupViewMatrices()
@@ -540,5 +548,60 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
     fun setScreenDimensions(width: Int, height: Int) {
         screenWidth = width
         screenHeight = height
+    }
+
+    /**
+     * Set the timecode parameter loader
+     *
+     * @param loader TimecodeParameterLoader instance to use for dynamic parameters
+     */
+    fun setTimecodeLoader(loader: TimecodeParameterLoader?) {
+        timecodeLoader = loader
+        android.util.Log.d("VRRenderer", "TimecodeLoader set: ${loader != null}")
+    }
+
+    /**
+     * Update video parameters based on current playback time
+     *
+     * Called periodically from onDrawFrame to apply timecode-based parameter changes.
+     * Updates are throttled to every N frames to reduce overhead.
+     */
+    private fun updateTimecodeParameters() {
+        // Only update every N frames to reduce overhead
+        frameCounter++
+        if (frameCounter < updateInterval) {
+            return
+        }
+        frameCounter = 0
+
+        // Get current video time
+        val currentTimeMs = try {
+            mediaPlayer?.currentPosition?.toLong() ?: 0L
+        } catch (e: Exception) {
+            android.util.Log.w("VRRenderer", "Error getting current position: ${e.message}")
+            0L
+        }
+
+        // Update timecode parameters
+        timecodeLoader?.let { loader ->
+            if (loader.updateForTime(currentTimeMs)) {
+                // Parameters were updated - apply volume change if needed
+                val params = loader.getCurrentParameters()
+                params?.videoVolume?.let { volume ->
+                    mediaPlayer?.setVolume(volume, volume)
+                }
+            }
+        }
+    }
+
+    /**
+     * Get current overlay configuration based on video time
+     *
+     * Can be called from MainActivity to update overlay UI
+     *
+     * @return Current OverlayConfig or null if no overlay active
+     */
+    fun getCurrentOverlay(): OverlayConfig? {
+        return timecodeLoader?.getCurrentOverlay()
     }
 }

@@ -1,0 +1,109 @@
+{
+  "videoFile": "forest_jog.mp4",
+  "timecodes": [
+    {
+      "timeRange": "00:00-00:15",
+      "overlay": {
+        "text": "Welcome! Let's start jogging! 🏃",
+        "position": "center",
+        "textSize": 24,
+        "textColor": "#FFFFFF",
+        "backgroundColor": "#CC000000"
+      }
+    },
+    {
+      "timeRange": "00:15-02:00",
+      "parameters": {
+        "minSpeed": 0.4,
+        "minSpeedMoving": 0.7,
+        "maxSpeed": 1.5
+      }
+    },
+    {
+      "timeRange": "02:00-02:15",
+      "parameters": {
+        "minSpeed": 0.5,
+        "minSpeedMoving": 0.8,
+        "maxSpeed": 1.8
+      },
+      "overlay": {
+        "text": "Going uphill! Push harder! 💪",
+        "position": "bottom",
+        "textSize": 20,
+        "textColor": "#FFFF00",
+        "backgroundColor": "#CC000000"
+      }
+    },
+    {
+      "timeRange": "02:15-04:00",
+      "parameters": {
+        "minSpeed": 0.5,
+        "minSpeedMoving": 0.8,
+        "maxSpeed": 1.8,
+        "caloriesPerKm": 80
+      }
+    },
+    {
+      "timeRange": "04:00-04:10",
+      "overlay": {
+        "text": "Halfway there! Keep it up! ⭐",
+        "position": "center",
+        "textSize": 22,
+        "textColor": "#00FF00",
+        "backgroundColor": "#CC000000"
+      }
+    },
+    {
+      "timeRange": "04:10-06:00",
+      "parameters": {
+        "minSpeed": 0.6,
+        "minSpeedMoving": 0.9,
+        "maxSpeed": 2.0,
+        "caloriesPerKm": 90
+      }
+    },
+    {
+      "timeRange": "06:00-06:15",
+      "parameters": {
+        "minSpeed": 0.4,
+        "minSpeedMoving": 0.7,
+        "maxSpeed": 1.5,
+        "caloriesPerKm": 60
+      },
+      "overlay": {
+        "text": "Downhill - take it easy! 🌄",
+        "position": "bottom",
+        "textSize": 20,
+        "textColor": "#00FFFF",
+        "backgroundColor": "#CC000000"
+      }
+    },
+    {
+      "timeRange": "06:15-08:00",
+      "parameters": {
+        "minSpeed": 0.4,
+        "minSpeedMoving": 0.7,
+        "maxSpeed": 1.5
+      }
+    },
+    {
+      "timeRange": "08:00-08:30",
+      "overlay": {
+        "text": "Final sprint! Give it your all! 🔥",
+        "position": "center",
+        "textSize": 24,
+        "textColor": "#FF0000",
+        "backgroundColor": "#CC000000"
+      }
+    },
+    {
+      "timeRange": "08:30-10:00",
+      "parameters": {
+        "minSpeed": 0.7,
+        "minSpeedMoving": 1.0,
+        "maxSpeed": 2.0,
+        "caloriesPerKm": 100
+      }
+    }
+  ]
+}
