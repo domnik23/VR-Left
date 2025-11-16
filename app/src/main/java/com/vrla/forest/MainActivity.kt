@@ -63,6 +63,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private var sessionSteps = 0
 
     private val rotationMatrix = FloatArray(9)
+    private val remappedRotationMatrix = FloatArray(9)
     private val orientationAngles = FloatArray(3)
     private var calibrationYaw = 0f
 
@@ -383,11 +384,13 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             totalSteps = 0
         }
 
-        // Video startet erst beim ersten Schritt
-        android.util.Log.d("MainActivity", "Waiting for first step to start video...")
+        // Video will start immediately (video starts on app launch)
+        isVideoStarted = true
+        vrRenderer.startVideo()
+        android.util.Log.d("MainActivity", "Starting video immediately...")
 
         startUIUpdateLoop()
-        calibrateOrientation()
+        calibrateOrientation()  // Auto-calibrate on start (v1.3 behavior)
     }
 
     private fun showGyroscopeWarning() {
@@ -436,11 +439,26 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     }
 
     private fun calibrateOrientation() {
-        calibrationYaw = orientationAngles[0]
-        android.util.Log.d("MainActivity", "Orientation calibrated: $calibrationYaw")
+        vrRenderer.calibrateOrientation()
         Toast.makeText(this, "View recalibrated", Toast.LENGTH_SHORT).show()
     }
 
+    /**
+     * Handle volume button presses for VR headset controls
+     *
+     * Since the phone is inside the VR headset, normal touch controls are not accessible.
+     * Volume buttons provide a way to control the app without removing the headset.
+     *
+     * Controls:
+     * - Double Volume Up: Recalibrate head orientation (set current view as "forward")
+     * - Double Volume Down: Restart current session
+     *
+     * Implementation:
+     * - Detects double-press within 500ms interval
+     * - First press stores timestamp
+     * - Second press within interval triggers action
+     * - Returns true to consume event and prevent system volume change
+     */
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         when (keyCode) {
             KeyEvent.KEYCODE_VOLUME_UP -> {
@@ -448,10 +466,10 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                 val timeSinceLastPress = currentTime - lastVolumeUpPressTime
 
                 if (timeSinceLastPress < DOUBLE_PRESS_INTERVAL) {
-                    // Double press detected - Recalibrate
+                    // Double press detected - Recalibrate orientation
                     calibrateOrientation()
                     lastVolumeUpPressTime = 0L
-                    return true
+                    return true  // Consume event, prevent volume change
                 } else {
                     lastVolumeUpPressTime = currentTime
                 }
@@ -464,7 +482,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                     // Double press detected - Restart session
                     restartSession()
                     lastVolumeDownPressTime = 0L
-                    return true
+                    return true  // Consume event, prevent volume change
                 } else {
                     lastVolumeDownPressTime = currentTime
                 }
@@ -538,21 +556,48 @@ Kalorien: ${calories}kcal"""
         return String.format("%02d:%02d", mins, secs)
     }
 
+    /**
+     * Handle sensor updates for head tracking and step counting
+     *
+     * Two sensors:
+     * 1. ROTATION_VECTOR: Combines gyroscope + accelerometer + magnetometer
+     *    - Provides device orientation as rotation matrix
+     *    - Used for VR head tracking
+     *    - Rate: SENSOR_DELAY_GAME (~50-100 updates/sec)
+     *
+     * 2. STEP_COUNTER: Hardware step detector
+     *    - Cumulative step count since device boot
+     *    - Used for playback speed control
+     *    - Rate: SENSOR_DELAY_NORMAL (updates on each step)
+     */
     override fun onSensorChanged(event: SensorEvent?) {
         event ?: return
 
         when (event.sensor.type) {
             Sensor.TYPE_ROTATION_VECTOR -> {
                 if (isVRActive) {
+                    // Convert rotation vector to 3x3 rotation matrix
                     SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values)
-                    SensorManager.getOrientation(rotationMatrix, orientationAngles)
 
-                    val calibratedYaw = orientationAngles[0] - calibrationYaw
-                    vrRenderer.updateOrientation(
-                        calibratedYaw,
-                        orientationAngles[1],
-                        orientationAngles[2]
+                    // Remap coordinate system for landscape VR headset orientation
+                    // Phone is rotated 90° LEFT (counterclockwise) when placed in headset
+                    //
+                    // Android default coordinate system (portrait):
+                    //   X: Right, Y: Up, Z: Out of screen
+                    //
+                    // VR headset coordinate system (landscape):
+                    //   X: Up (was Y), Y: Left (was -X), Z: Out of screen
+                    //
+                    // Remapping: AXIS_MINUS_Y → new X, AXIS_X → new Y
+                    SensorManager.remapCoordinateSystem(
+                        rotationMatrix,
+                        SensorManager.AXIS_MINUS_Y,  // new X-axis (pointing up in landscape)
+                        SensorManager.AXIS_X,        // new Y-axis (pointing left in landscape)
+                        remappedRotationMatrix
                     )
+
+                    // Send remapped rotation to renderer for head tracking
+                    vrRenderer.updateHeadRotation(remappedRotationMatrix)
                 }
             }
 

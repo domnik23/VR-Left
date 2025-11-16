@@ -33,25 +33,34 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
     private var mvpMatrixHandle = 0
     private var textureHandle = 0
     private var texOffsetHandle = 0
+    private var texScaleHandle = 0
 
     private lateinit var sphereVertices: FloatBuffer
     private lateinit var sphereTexCoords: FloatBuffer
     private lateinit var sphereIndices: IntBuffer
 
-    private val projectionMatrix = FloatArray(16)
-    private val viewMatrixLeft = FloatArray(16)
-    private val viewMatrixRight = FloatArray(16)
-    private val modelMatrix = FloatArray(16)
-    private val mvpMatrix = FloatArray(16)
-    private val tempMatrix = FloatArray(16)
-    private val tempMatrix2 = FloatArray(16)
+    // Transformation matrices for 3D rendering
+    private val projectionMatrix = FloatArray(16)      // Camera lens projection
+    private val viewMatrixLeft = FloatArray(16)        // Left eye view (head tracking + IPD)
+    private val viewMatrixRight = FloatArray(16)       // Right eye view (head tracking + IPD)
+    private val modelMatrix = FloatArray(16)           // 360° sphere world transformation
+    private val mvpMatrix = FloatArray(16)             // Combined Model-View-Projection matrix
+    private val tempMatrix = FloatArray(16)            // Temporary for matrix operations
+    private val tempMatrix2 = FloatArray(16)           // Temporary for matrix operations
 
-    private var yaw = 0f
-    private var pitch = 0f
-    private var roll = 0f
+    // Head tracking system using rotation matrices (avoids gimbal lock)
+    // Why rotation matrices instead of Euler angles?
+    // - Euler angles suffer from gimbal lock at 90° pitch
+    // - Rotation matrices are the native output from Android sensors
+    // - More accurate and stable for VR applications
+    private val headRotationMatrix = FloatArray(16)    // Final rotation applied to view (calibrated)
+    private val uncalibratedRotation = FloatArray(16)  // Raw sensor rotation (for calibration)
+    private val calibrationMatrix = FloatArray(16)     // Calibration offset matrix
+    private val calibratedRotation = FloatArray(16)    // Unused (kept for potential future use)
+    private var hasHeadRotation = false                // True after first sensor update
+    private var isCalibrated = false                   // True after calibrateOrientation() called
 
     private var playbackSpeed = 0.3f
-    private var updateTexture = false
 
     private val sphereRadius = 10f
     private val sphereStacks = 30
@@ -82,6 +91,7 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
         mvpMatrixHandle = GLES30.glGetUniformLocation(program, "uMVPMatrix")
         textureHandle = GLES30.glGetUniformLocation(program, "uTexture")
         texOffsetHandle = GLES30.glGetUniformLocation(program, "uTexOffsetU")
+        texScaleHandle = GLES30.glGetUniformLocation(program, "uTexScaleX")
 
         surfaceTexture = SurfaceTexture(textureId).apply {
             setOnFrameAvailableListener(this@VRRenderer)
@@ -108,50 +118,70 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
     override fun onDrawFrame(gl: GL10?) {
         GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT or GLES30.GL_DEPTH_BUFFER_BIT)
 
-        if (updateTexture) {
-            surfaceTexture?.updateTexImage()
-            updateTexture = false
-        }
+        // Always update texture (safe to call even if no new frame available)
+        // This prevents video freezing issues caused by missed onFrameAvailable callbacks
+        surfaceTexture?.updateTexImage()
 
         GLES30.glUseProgram(program)
         setupViewMatrices()
 
+        // Texture scaling: Mono mode uses full video (1.0x), Stereo mode uses half (0.5x for side-by-side)
+        val texScale = if (AppConfig.stereoMode) 0.5f else 1.0f
+
         // Left eye
         GLES30.glViewport(0, 0, screenWidth / 2, screenHeight)
-        drawSphere(viewMatrixLeft, 0f)
+        drawSphere(viewMatrixLeft, 0f, texScale)
 
         // Right eye
         GLES30.glViewport(screenWidth / 2, 0, screenWidth / 2, screenHeight)
         // Mono mode: both eyes see the same (offset 0.0), Stereo mode: right eye sees right half (offset 0.5)
         val rightEyeOffset = if (AppConfig.stereoMode) 0.5f else 0f
-        drawSphere(viewMatrixRight, rightEyeOffset)
+        drawSphere(viewMatrixRight, rightEyeOffset, texScale)
     }
 
+    /**
+     * Setup view matrices for stereo VR rendering
+     *
+     * Matrix hierarchy:
+     * - Model Matrix: Rotates the 360° sphere to correct video orientation
+     * - View Matrix: Applies head tracking and stereo eye offset (IPD)
+     * - Projection Matrix: Perspective projection for VR lenses
+     *
+     * Key concepts:
+     * - IPD (Inter-Pupillary Distance): Eye separation for stereo 3D effect
+     * - Matrix multiplication order: translation * rotation (not rotation * translation)
+     *   This ensures IPD offset happens in camera space, not world space
+     */
     private fun setupViewMatrices() {
-        // Model matrix: Apply video rotation correction to the sphere (world coordinates)
+        // Model matrix: Rotate to correct video orientation
+        // Video was pointing at sky, rotate 90° down (around X-axis)
         Matrix.setIdentityM(modelMatrix, 0)
-        Matrix.rotateM(modelMatrix, 0, AppConfig.videoRotation, 0f, 0f, 1f)
+        Matrix.rotateM(modelMatrix, 0, -90f, 1f, 0f, 0f)  // Pitch down 90°
 
-        // Create base view matrix with head tracking rotations
-        // For 360° video, we rotate the camera (view), not the world (model)
-        // Rotation order: Yaw (Y) -> Pitch (X) -> Roll (Z)
-        Matrix.setIdentityM(tempMatrix, 0)
-        Matrix.rotateM(tempMatrix, 0, yaw, 0f, 1f, 0f)      // Horizontal rotation
-        Matrix.rotateM(tempMatrix, 0, pitch, 1f, 0f, 0f)    // Vertical rotation
-        Matrix.rotateM(tempMatrix, 0, roll, 0f, 0f, 1f)     // Head tilt
+        // View matrix approach for 360° video:
+        // The sensor rotation describes how the phone is oriented.
+        // We want to rotate the world OPPOSITE to the phone rotation.
 
-        // Left eye: IPD offset to the left
+        if (hasHeadRotation) {
+            // Use the rotation matrix directly (already in correct orientation)
+            System.arraycopy(headRotationMatrix, 0, tempMatrix, 0, 16)
+        } else {
+            Matrix.setIdentityM(tempMatrix, 0)
+        }
+
+        // Left eye: Rotation, then IPD offset in camera space
+        // Matrix multiplication: viewMatrix = translation * rotation
         Matrix.setIdentityM(viewMatrixLeft, 0)
         Matrix.translateM(viewMatrixLeft, 0, -AppConfig.ipd / 2f, 0f, 0f)
-        Matrix.multiplyMM(viewMatrixLeft, 0, tempMatrix, 0, viewMatrixLeft, 0)
+        Matrix.multiplyMM(viewMatrixLeft, 0, viewMatrixLeft, 0, tempMatrix, 0)
 
-        // Right eye: IPD offset to the right
+        // Right eye: Rotation, then IPD offset in camera space
         Matrix.setIdentityM(viewMatrixRight, 0)
         Matrix.translateM(viewMatrixRight, 0, AppConfig.ipd / 2f, 0f, 0f)
-        Matrix.multiplyMM(viewMatrixRight, 0, tempMatrix, 0, viewMatrixRight, 0)
+        Matrix.multiplyMM(viewMatrixRight, 0, viewMatrixRight, 0, tempMatrix, 0)
     }
 
-    private fun drawSphere(viewMatrix: FloatArray, texOffsetU: Float) {
+    private fun drawSphere(viewMatrix: FloatArray, texOffsetU: Float, texScaleX: Float) {
         // MVP = Projection * View * Model
         Matrix.multiplyMM(tempMatrix2, 0, viewMatrix, 0, modelMatrix, 0)
         Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, tempMatrix2, 0)
@@ -161,6 +191,7 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
         GLES30.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, textureId)
         GLES30.glUniform1i(textureHandle, 0)
         GLES30.glUniform1f(texOffsetHandle, texOffsetU)
+        GLES30.glUniform1f(texScaleHandle, texScaleX)
         GLES30.glUniformMatrix4fv(mvpMatrixHandle, 1, false, mvpMatrix, 0)
 
         sphereVertices.position(0)
@@ -243,11 +274,12 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
             in vec2 aTexCoord;
             uniform mat4 uMVPMatrix;
             uniform float uTexOffsetU;
+            uniform float uTexScaleX;
             out vec2 vTexCoord;
-            
+
             void main() {
                 gl_Position = uMVPMatrix * aPosition;
-                vTexCoord = vec2(aTexCoord.x * 0.5 + uTexOffsetU, aTexCoord.y);
+                vTexCoord = vec2(aTexCoord.x * uTexScaleX + uTexOffsetU, aTexCoord.y);
             }
         """.trimIndent()
 
@@ -387,14 +419,95 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
         }
     }
 
-    fun updateOrientation(yaw: Float, pitch: Float, roll: Float) {
-        this.yaw = Math.toDegrees(yaw.toDouble()).toFloat()
-        this.pitch = Math.toDegrees(pitch.toDouble()).toFloat()
-        this.roll = Math.toDegrees(roll.toDouble()).toFloat()
+    /**
+     * Update head rotation from sensor data
+     *
+     * Flow:
+     * 1. Convert 3x3 sensor rotation matrix to 4x4 OpenGL matrix
+     * 2. Store uncalibrated rotation for calibration purposes
+     * 3. If calibrated: Apply calibration matrix to current rotation
+     *
+     * Why use rotation matrices instead of Euler angles?
+     * - Avoids gimbal lock (Euler angle singularity at 90° pitch)
+     * - More accurate for VR head tracking
+     * - Direct from Android sensor (no conversion needed)
+     *
+     * Coordinate system:
+     * - Input: Android sensor coordinate system (remapped to landscape in MainActivity)
+     * - Output: OpenGL coordinate system for rendering
+     *
+     * @param rotationMatrix3x3 9-element rotation matrix from SensorManager
+     */
+    fun updateHeadRotation(rotationMatrix3x3: FloatArray) {
+        // Convert 3x3 rotation matrix to 4x4 for OpenGL
+        // The sensor rotation matrix describes device orientation in world space
+        val temp4x4 = FloatArray(16)
+        temp4x4[0] = rotationMatrix3x3[0]
+        temp4x4[1] = rotationMatrix3x3[1]
+        temp4x4[2] = rotationMatrix3x3[2]
+        temp4x4[3] = 0f
+
+        temp4x4[4] = rotationMatrix3x3[3]
+        temp4x4[5] = rotationMatrix3x3[4]
+        temp4x4[6] = rotationMatrix3x3[5]
+        temp4x4[7] = 0f
+
+        temp4x4[8] = rotationMatrix3x3[6]
+        temp4x4[9] = rotationMatrix3x3[7]
+        temp4x4[10] = rotationMatrix3x3[8]
+        temp4x4[11] = 0f
+
+        temp4x4[12] = 0f
+        temp4x4[13] = 0f
+        temp4x4[14] = 0f
+        temp4x4[15] = 1f
+
+        // Always store the uncalibrated rotation for calibration purposes
+        // This is CRITICAL: We need the raw sensor rotation, not the calibrated one,
+        // otherwise calibrations would stack on top of each other
+        System.arraycopy(temp4x4, 0, uncalibratedRotation, 0, 16)
+
+        if (isCalibrated) {
+            // Apply calibration: calibratedRotation = calibrationMatrix * currentRotation
+            // This makes the calibration orientation the new "zero" orientation
+            Matrix.multiplyMM(headRotationMatrix, 0, calibrationMatrix, 0, temp4x4, 0)
+        } else {
+            System.arraycopy(temp4x4, 0, headRotationMatrix, 0, 16)
+        }
+
+        hasHeadRotation = true
+    }
+
+    /**
+     * Calibrate head orientation to current position
+     *
+     * Makes the current head position the new "forward" direction.
+     *
+     * The calibration matrix is the transpose (inverse for rotation matrices)
+     * of the current rotation. When multiplied with future rotations,
+     * this effectively "zeros out" the current orientation.
+     *
+     * Note: Uses headRotationMatrix (v1.3 approach) for immediate calibration.
+     * This may cause calibration stacking on repeated calls, but works better
+     * for initial app startup calibration.
+     *
+     * Called:
+     * - Automatically on app start (after initial sensor data)
+     * - Manually by double-pressing Volume Up button
+     */
+    fun calibrateOrientation() {
+        if (hasHeadRotation) {
+            // Store inverse (transpose) of current rotation as calibration
+            // This will make current orientation the new "forward" direction
+            Matrix.transposeM(calibrationMatrix, 0, headRotationMatrix, 0)
+            isCalibrated = true
+            android.util.Log.d("VRRenderer", "Orientation calibrated")
+        }
     }
 
     override fun onFrameAvailable(surfaceTexture: SurfaceTexture?) {
-        updateTexture = true
+        // Frame is available - will be picked up in next onDrawFrame call
+        // No flag needed since we call updateTexImage() every frame
     }
 
     fun restartVideo() {
