@@ -185,7 +185,7 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
         // Model matrix: Rotate to correct video orientation
         // Base rotation from settings + automatic 180° adjustment based on landscape orientation
         val baseRotation = AppConfig.videoRotation
-        val rotationOffset = if (displayRotation == android.view.Surface.ROTATION_90) 180f else 0f
+        val rotationOffset = if (displayRotation == android.view.Surface.ROTATION_270) 180f else 0f
 
         Matrix.setIdentityM(modelMatrix, 0)
         Matrix.rotateM(modelMatrix, 0, baseRotation + rotationOffset, 1f, 0f, 0f)
