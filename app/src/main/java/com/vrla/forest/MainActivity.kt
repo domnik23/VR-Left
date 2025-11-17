@@ -74,7 +74,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private var savedPlaybackPosition = 0
 
     // Volume button double-press detection
-    private var lastVolumeUpPressTime = 0L
     private var lastVolumeDownPressTime = 0L
     private val DOUBLE_PRESS_INTERVAL = 500L // milliseconds
 
@@ -542,7 +541,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         }
 
         startUIUpdateLoop()
-        calibrateOrientation()  // Auto-calibrate on start (v1.3 behavior)
     }
 
     /**
@@ -607,11 +605,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         )
     }
 
-    private fun calibrateOrientation() {
-        vrRenderer.calibrateOrientation()
-        Toast.makeText(this, "View recalibrated", Toast.LENGTH_SHORT).show()
-    }
-
     /**
      * Handle volume button presses for VR headset controls
      *
@@ -619,7 +612,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
      * Volume buttons provide a way to control the app without removing the headset.
      *
      * Controls:
-     * - Double Volume Up: Recalibrate head orientation (set current view as "forward")
      * - Double Volume Down: Restart current session
      *
      * Implementation:
@@ -630,19 +622,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
      */
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         when (keyCode) {
-            KeyEvent.KEYCODE_VOLUME_UP -> {
-                val currentTime = System.currentTimeMillis()
-                val timeSinceLastPress = currentTime - lastVolumeUpPressTime
-
-                if (timeSinceLastPress < DOUBLE_PRESS_INTERVAL) {
-                    // Double press detected - Recalibrate orientation
-                    calibrateOrientation()
-                    lastVolumeUpPressTime = 0L
-                    return true  // Consume event, prevent volume change
-                } else {
-                    lastVolumeUpPressTime = currentTime
-                }
-            }
             KeyEvent.KEYCODE_VOLUME_DOWN -> {
                 val currentTime = System.currentTimeMillis()
                 val timeSinceLastPress = currentTime - lastVolumeDownPressTime
