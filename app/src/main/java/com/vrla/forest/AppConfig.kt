@@ -265,7 +265,14 @@ object AppConfig {
             // Video settings
             videoVolume = prefs.getInt("video_volume", 50) / 100f
             stereoMode = prefs.getBoolean("stereo_mode", false)
-            videoRotation = prefs.getFloat("video_rotation", -90f)
+
+            // Migration: Convert old 90° default to new -90° default
+            var rotation = prefs.getFloat("video_rotation", -90f)
+            if (rotation == 90f) {
+                rotation = -90f
+                prefs.edit().putFloat("video_rotation", -90f).apply()
+            }
+            videoRotation = rotation
 
             // VR settings
             ipd = prefs.getFloat("ipd", 0.064f)
