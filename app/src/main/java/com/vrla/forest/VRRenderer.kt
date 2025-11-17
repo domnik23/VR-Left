@@ -69,6 +69,8 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
     private var screenWidth = 1920
     private var screenHeight = 1080
 
+    private var displayRotation = android.view.Surface.ROTATION_0  // Track display rotation for video orientation
+
     private var isVideoReadyToStart = false
     private var surfaceCreated = false
     private var videoEnded = false
@@ -181,9 +183,12 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
      */
     private fun setupViewMatrices() {
         // Model matrix: Rotate to correct video orientation
-        // Uses videoRotation setting from AppConfig (adjustable in Settings)
+        // Base rotation from settings + automatic 180° adjustment for Landscape-Right
+        val baseRotation = AppConfig.videoRotation
+        val rotationOffset = if (displayRotation == android.view.Surface.ROTATION_270) 180f else 0f
+
         Matrix.setIdentityM(modelMatrix, 0)
-        Matrix.rotateM(modelMatrix, 0, AppConfig.videoRotation, 1f, 0f, 0f)
+        Matrix.rotateM(modelMatrix, 0, baseRotation + rotationOffset, 1f, 0f, 0f)
 
         // View matrix approach for 360° video:
         // The sensor rotation describes how the phone is oriented.
@@ -670,6 +675,15 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
     fun setScreenDimensions(width: Int, height: Int) {
         screenWidth = width
         screenHeight = height
+    }
+
+    /**
+     * Set display rotation for automatic video orientation adjustment
+     *
+     * @param rotation Display rotation (Surface.ROTATION_0, ROTATION_90, ROTATION_270, etc.)
+     */
+    fun setDisplayRotation(rotation: Int) {
+        displayRotation = rotation
     }
 
     /**

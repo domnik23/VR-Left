@@ -785,6 +785,9 @@ Kalorien: ${calories}kcal"""
                     @Suppress("DEPRECATION")
                     val displayRotation = windowManager.defaultDisplay.rotation
 
+                    // Update renderer with current display rotation for video orientation
+                    vrRenderer.setDisplayRotation(displayRotation)
+
                     val (axisX, axisY) = when (displayRotation) {
                         android.view.Surface.ROTATION_270 -> {
                             // Landscape-Right: Phone rotated 270° (or -90°)
