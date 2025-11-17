@@ -387,6 +387,40 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:text="Stabilität um 1.0x"
+                android:textColor="#FFFFFF"
+                android:textSize="12sp"
+                android:layout_marginBottom="4dp"
+                android:layout_marginTop="12dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="12dp">
+
+                <SeekBar
+                    android:id="@+id/accelerationCurveSeekBar"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:max="200"
+                    android:progress="0" />
+
+                <TextView
+                    android:id="@+id/accelerationCurveValueText"
+                    android:layout_width="80dp"
+                    android:layout_height="wrap_content"
+                    android:text="Linear"
+                    android:textColor="#FFFFFF"
+                    android:textSize="12sp"
+                    android:textAlignment="textEnd" />
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
                 android:text="Video Start verzögern"
                 android:textColor="#FFFFFF"
                 android:textSize="12sp"

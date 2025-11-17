@@ -127,6 +127,35 @@ object AppConfig {
      */
     @Volatile var speedSmoothingFactor = 0.3f
 
+    /**
+     * Acceleration curve exponent
+     *
+     * Controls how the playback speed responds to step frequency changes.
+     * Creates a non-linear response curve that makes it easier to maintain speeds around 1.0x.
+     *
+     * Range: 1.0 - 3.0
+     * Default: 1.0 (linear response)
+     *
+     * How it works:
+     * - 1.0: Linear response (standard behavior)
+     * - 1.5: Moderate dead-zone around 1.0x (easier to maintain normal speed)
+     * - 2.0: Stronger dead-zone around 1.0x (very stable around normal speed)
+     * - 3.0: Maximum dead-zone (most resistant to speed changes near 1.0x)
+     *
+     * The curve makes speed changes:
+     * - Less sensitive near 1.0x (dead-zone)
+     * - More sensitive at low speeds (faster acceleration from idle)
+     * - More sensitive at high speeds (faster acceleration to max speed)
+     *
+     * Use cases:
+     * - 1.0: Prefer responsive speed changes at all levels
+     * - 1.5-2.0: Want stable jogging speed without constant fluctuation
+     * - 2.5-3.0: Maximum stability for maintaining steady pace
+     *
+     * @see StepController.applyAccelerationCurve for curve implementation
+     */
+    @Volatile var accelerationCurve = 1.0f
+
     // ============================================================
     // VR SETTINGS
     // ============================================================
@@ -329,6 +358,7 @@ object AppConfig {
             minSpeedMoving = prefs.getFloat("min_speed_moving", 0.7f)
             maxSpeed = prefs.getFloat("max_speed", 1.5f)
             speedSmoothingFactor = prefs.getFloat("speed_smoothing", 0.3f)
+            accelerationCurve = prefs.getFloat("acceleration_curve", 1.0f)
 
             // Step detection settings
             stepsBeforeVideoStart = prefs.getInt("steps_before_video_start", 3)

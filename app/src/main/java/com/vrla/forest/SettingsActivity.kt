@@ -44,6 +44,8 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var maxSpeedValueText: TextView
     private lateinit var smoothingSeekBar: SeekBar
     private lateinit var smoothingValueText: TextView
+    private lateinit var accelerationCurveSeekBar: SeekBar
+    private lateinit var accelerationCurveValueText: TextView
     private lateinit var stepsBeforeStartSeekBar: SeekBar
     private lateinit var stepsBeforeStartValueText: TextView
     private lateinit var appVersionText: TextView
@@ -125,6 +127,8 @@ class SettingsActivity : AppCompatActivity() {
         maxSpeedValueText = findViewById(R.id.maxSpeedValueText)
         smoothingSeekBar = findViewById(R.id.smoothingSeekBar)
         smoothingValueText = findViewById(R.id.smoothingValueText)
+        accelerationCurveSeekBar = findViewById(R.id.accelerationCurveSeekBar)
+        accelerationCurveValueText = findViewById(R.id.accelerationCurveValueText)
         stepsBeforeStartSeekBar = findViewById(R.id.stepsBeforeStartSeekBar)
         stepsBeforeStartValueText = findViewById(R.id.stepsBeforeStartValueText)
         appVersionText = findViewById(R.id.appVersionText)
@@ -269,6 +273,20 @@ class SettingsActivity : AppCompatActivity() {
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
         })
 
+        accelerationCurveSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                val curve = 1.0f + progress * 0.01f // 1.0 to 3.0
+                accelerationCurveValueText.text = when {
+                    curve < 1.2f -> "Linear"
+                    curve < 1.7f -> "Moderat"
+                    curve < 2.3f -> "Stark"
+                    else -> "Sehr stark"
+                }
+            }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
+
         stepsBeforeStartSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 stepsBeforeStartValueText.text = if (progress == 0) {
@@ -325,6 +343,8 @@ class SettingsActivity : AppCompatActivity() {
         maxSpeedSeekBar.progress = ((maxSpeed - 1.0f) * 100).toInt() // 1.0 - 2.0
         val smoothing = prefs.getFloat("speed_smoothing", 0.3f)
         smoothingSeekBar.progress = (smoothing * 100).toInt() // 0.0 - 1.0
+        val accelerationCurve = prefs.getFloat("acceleration_curve", 1.0f)
+        accelerationCurveSeekBar.progress = ((accelerationCurve - 1.0f) * 100).toInt() // 1.0 - 3.0
 
         // Step detection
         val stepsBeforeStart = prefs.getInt("steps_before_video_start", 3)
@@ -371,9 +391,11 @@ class SettingsActivity : AppCompatActivity() {
         prefs.putFloat("max_speed", maxSpeed)
         val smoothing = smoothingSeekBar.progress * 0.01f // 0.0 - 1.0
         prefs.putFloat("speed_smoothing", smoothing)
+        val accelerationCurve = 1.0f + accelerationCurveSeekBar.progress * 0.01f // 1.0 - 3.0
+        prefs.putFloat("acceleration_curve", accelerationCurve)
 
         // Step detection
-        val stepsBeforeStart = stepsBeforeStartSeekBar.progress // 0 - 20
+        val stepsBeforeStart = stepsBeforeStartSeekBar.progress // 0 - 10
         prefs.putInt("steps_before_video_start", stepsBeforeStart)
 
         prefs.apply()
@@ -390,6 +412,7 @@ class SettingsActivity : AppCompatActivity() {
         AppConfig.minSpeedMoving = minSpeedMoving
         AppConfig.maxSpeed = maxSpeed
         AppConfig.speedSmoothingFactor = smoothing
+        AppConfig.accelerationCurve = accelerationCurve
         AppConfig.stepsBeforeVideoStart = stepsBeforeStart
 
         Toast.makeText(this, "Einstellungen gespeichert", Toast.LENGTH_SHORT).show()
@@ -407,6 +430,7 @@ class SettingsActivity : AppCompatActivity() {
         minSpeedMovingSeekBar.progress = 70 // 0.7x
         maxSpeedSeekBar.progress = 50 // 1.5x (1.0 + 0.5)
         smoothingSeekBar.progress = 30 // 0.3 (Normal)
+        accelerationCurveSeekBar.progress = 0 // 1.0 (Linear)
         stepsBeforeStartSeekBar.progress = 3 // 3 steps (short warm-up)
 
         Toast.makeText(this, "Auf Standardwerte zurückgesetzt", Toast.LENGTH_SHORT).show()
