@@ -55,17 +55,14 @@ object AppConfig {
     @Volatile var videoVolume = 0.5f
 
     /**
-     * Video orientation correction offset
+     * Video orientation correction
      *
-     * User-adjustable rotation offset applied on top of the base 90° rotation
-     * (which is required due to landscape sensor remapping).
-     *
-     * Default: 0° (no additional rotation)
-     * Range: -90° to +180°
+     * Rotation offset applied to model matrix to fix video orientation.
+     * Default: -90° (pitch down) to correct for camera pointing upward.
      *
      * This rotates the 360° sphere around X-axis (pitch) before head tracking is applied.
      */
-    @Volatile var videoRotation = 0f
+    @Volatile var videoRotation = -90f
 
     // ============================================================
     // SPEED SETTINGS
@@ -268,7 +265,7 @@ object AppConfig {
             // Video settings
             videoVolume = prefs.getInt("video_volume", 50) / 100f
             stereoMode = prefs.getBoolean("stereo_mode", false)
-            videoRotation = prefs.getFloat("video_rotation", 0f)
+            videoRotation = prefs.getFloat("video_rotation", -90f)
 
             // VR settings
             ipd = prefs.getFloat("ipd", 0.064f)

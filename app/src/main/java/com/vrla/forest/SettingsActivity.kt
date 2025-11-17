@@ -100,8 +100,8 @@ class SettingsActivity : AppCompatActivity() {
         volumeValueText = findViewById(R.id.volumeValueText)
         stereoSwitch = findViewById(R.id.stereoSwitch)
 
-        // Setup video rotation spinner (shows user offset, base 90° is applied automatically)
-        val rotationOptions = arrayOf("-90°", "0° (Normal)", "+90°", "+180°")
+        // Setup video rotation spinner
+        val rotationOptions = arrayOf("0° (Normal)", "90° CW", "180°", "270° CW (-90°)")
         val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, rotationOptions)
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         videoRotationSpinner.adapter = adapter
@@ -265,14 +265,13 @@ class SettingsActivity : AppCompatActivity() {
     private fun loadSettings() {
         val prefs = getSharedPreferences("VRLAPrefs", Context.MODE_PRIVATE)
 
-        // Video rotation (user offset values)
-        val rotation = prefs.getFloat("video_rotation", 0f)
+        // Video rotation
+        val rotation = prefs.getFloat("video_rotation", -90f)
         videoRotationSpinner.setSelection(when (rotation) {
-            -90f -> 0   // -90°
-            0f -> 1     // 0° (Normal/Default)
-            90f -> 2    // +90°
-            180f, -180f -> 3  // +180°
-            else -> 1   // Default to 0° if unknown value
+            0f -> 0    // 0°
+            90f -> 1   // 90° CW
+            180f, -180f -> 2  // 180°
+            else -> 3  // 270° CW / -90°
         })
         volumeSeekBar.progress = prefs.getInt("video_volume", 50)
 
@@ -304,13 +303,13 @@ class SettingsActivity : AppCompatActivity() {
     private fun saveSettings() {
         val prefs = getSharedPreferences("VRLAPrefs", Context.MODE_PRIVATE).edit()
 
-        // Video rotation (user offset values)
+        // Video rotation
         val rotation = when (videoRotationSpinner.selectedItemPosition) {
-            0 -> -90f    // -90°
-            1 -> 0f      // 0° (Normal/Default)
-            2 -> 90f     // +90°
-            3 -> 180f    // +180°
-            else -> 0f   // Default to 0°
+            0 -> 0f      // 0°
+            1 -> 90f     // 90° CW
+            2 -> 180f    // 180°
+            3 -> -90f    // 270° CW / -90°
+            else -> -90f
         }
         prefs.putFloat("video_rotation", rotation)
         prefs.putInt("video_volume", volumeSeekBar.progress)
@@ -354,7 +353,7 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun resetToDefaults() {
-        videoRotationSpinner.setSelection(1) // 0° (Normal - no additional rotation)
+        videoRotationSpinner.setSelection(3) // -90° (Default)
         volumeSeekBar.progress = 50
         stereoSwitch.isChecked = false
         ipdSeekBar.progress = 14 // 64mm
