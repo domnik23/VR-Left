@@ -487,6 +487,11 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             return
         }
 
+        // Set initial display rotation before starting video
+        @Suppress("DEPRECATION")
+        val initialRotation = windowManager.defaultDisplay.rotation
+        vrRenderer.setDisplayRotation(initialRotation)
+
         // Set video URI in renderer before starting
         selectedVideoUri?.let { uri ->
             vrRenderer.setVideoUri(uri)
