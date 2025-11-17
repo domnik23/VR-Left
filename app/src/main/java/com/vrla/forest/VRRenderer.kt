@@ -525,17 +525,18 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
     }
 
     /**
-     * Calibrate head orientation to current position
+     * Calibrate head orientation to current position (Yaw only)
      *
-     * Makes the current head position the new "forward" direction.
+     * Makes the current horizontal viewing direction the new "forward" direction.
+     * Only calibrates Yaw (horizontal rotation), preserving Pitch (up/down) and Roll.
      *
-     * The calibration matrix is the transpose (inverse for rotation matrices)
-     * of the current rotation. When multiplied with future rotations,
-     * this effectively "zeros out" the current orientation.
+     * This prevents the calibration from "locking" the vertical viewing angle,
+     * allowing the user to freely look up and down after calibration.
      *
-     * Note: Uses headRotationMatrix (v1.3 approach) for immediate calibration.
-     * This may cause calibration stacking on repeated calls, but works better
-     * for initial app startup calibration.
+     * Implementation:
+     * - Extracts Yaw angle from current uncalibrated rotation
+     * - Creates calibration matrix that only rotates around vertical (Y) axis
+     * - Inverts the Yaw to make current direction the new zero
      *
      * Called:
      * - Automatically on app start (after initial sensor data)
@@ -543,10 +544,28 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
      */
     fun calibrateOrientation() {
         if (hasHeadRotation) {
-            // Store inverse (transpose) of UNCALIBRATED rotation as calibration
-            // IMPORTANT: Use uncalibratedRotation, not headRotationMatrix!
-            // Using headRotationMatrix would stack calibrations on top of each other
-            Matrix.transposeM(calibrationMatrix, 0, uncalibratedRotation, 0)
+            // Extract Yaw angle from uncalibrated rotation
+            // For VR in landscape mode, we need to extract the horizontal rotation
+            val orientationAngles = FloatArray(3)
+
+            // Convert 4x4 matrix to 3x3 for getOrientation()
+            val rotationMatrix3x3 = FloatArray(9)
+            for (i in 0..2) {
+                for (j in 0..2) {
+                    rotationMatrix3x3[i * 3 + j] = uncalibratedRotation[i * 4 + j]
+                }
+            }
+
+            // Get orientation angles: [azimuth, pitch, roll]
+            // Azimuth is rotation around Z-axis (Yaw in world space)
+            android.hardware.SensorManager.getOrientation(rotationMatrix3x3, orientationAngles)
+            val yaw = orientationAngles[0]  // Azimuth = Yaw
+
+            // Create calibration matrix that only rotates around Y-axis (vertical)
+            // Negate yaw to create inverse rotation
+            Matrix.setIdentityM(calibrationMatrix, 0)
+            Matrix.rotateM(calibrationMatrix, 0, Math.toDegrees(-yaw.toDouble()).toFloat(), 0f, 1f, 0f)
+
             isCalibrated = true
         }
     }
