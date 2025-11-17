@@ -532,11 +532,13 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         if (AppConfig.stepsBeforeVideoStart == 0) {
             // Start immediately if no step delay is configured
             isVideoStarted = true
+            waitingForStepsToResume = false
             vrRenderer.startVideo()
         } else {
             // Wait for configured number of steps before starting
             stepsSinceStart = 0
             isVideoStarted = false
+            waitingForStepsToResume = false  // Initial start, not a restart
         }
 
         startUIUpdateLoop()
@@ -894,6 +896,7 @@ Kalorien: ${calories}kcal"""
                 stepsSinceStart = 0
                 startTime = System.currentTimeMillis()
                 isVideoStarted = false
+                waitingForStepsToResume = false
                 stepController.reset()
                 finishOverlay.visibility = View.GONE
             } else {
@@ -910,6 +913,7 @@ Kalorien: ${calories}kcal"""
                 }
                 // Always resume video when returning from settings
                 vrRenderer.resume()
+                waitingForStepsToResume = false  // Clear restart flag since we're resuming normally
             }
             // Update volume and FOV if player is running
             vrRenderer.updateVolume()
