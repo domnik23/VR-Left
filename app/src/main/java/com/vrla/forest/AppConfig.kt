@@ -266,7 +266,8 @@ object AppConfig {
             videoVolume = prefs.getInt("video_volume", 50) / 100f
             stereoMode = prefs.getBoolean("stereo_mode", false)
 
-            // Migration: Convert old 90° default to new -90° default
+            // Video rotation with migration for landscape fix
+            // Old versions used 90° but new sensor remapping requires -90°
             var rotation = prefs.getFloat("video_rotation", -90f)
             if (rotation == 90f) {
                 rotation = -90f

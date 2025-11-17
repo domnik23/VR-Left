@@ -758,16 +758,8 @@ Kalorien: ${calories}kcal"""
     /**
      * Handle sensor updates for head tracking and step counting
      *
-     * Two sensors:
-     * 1. ROTATION_VECTOR: Combines gyroscope + accelerometer + magnetometer
-     *    - Provides device orientation as rotation matrix
-     *    - Used for VR head tracking
-     *    - Rate: SENSOR_DELAY_GAME (~50-100 updates/sec)
-     *
-     * 2. STEP_COUNTER: Hardware step detector
-     *    - Cumulative step count since device boot
-     *    - Used for playback speed control
-     *    - Rate: SENSOR_DELAY_NORMAL (updates on each step)
+     * ROTATION_VECTOR: Head tracking for VR (gyro + accel + mag fusion)
+     * STEP_COUNTER: Speed control based on walking/jogging pace
      */
     override fun onSensorChanged(event: SensorEvent?) {
         event ?: return
@@ -775,45 +767,31 @@ Kalorien: ${calories}kcal"""
         when (event.sensor.type) {
             Sensor.TYPE_ROTATION_VECTOR -> {
                 if (isVRActive) {
-                    // Convert rotation vector to 3x3 rotation matrix
+                    // Convert rotation vector to rotation matrix
                     SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values)
 
-                    // Remap coordinate system for landscape VR headset orientation
-                    // The remapping depends on which landscape orientation the phone is in
-                    //
-                    // Android default coordinate system (portrait):
-                    //   X: Right, Y: Up, Z: Out of screen
-                    //
-                    // Display rotation detection:
-                    // - ROTATION_90: Phone rotated LEFT (normal landscape)
-                    // - ROTATION_270: Phone rotated RIGHT (landscape flipped 180°)
+                    // Detect current landscape orientation
                     @Suppress("DEPRECATION")
                     val displayRotation = windowManager.defaultDisplay.rotation
-
-                    // Update renderer with current display rotation for video orientation
                     vrRenderer.setDisplayRotation(displayRotation)
 
+                    // Remap coordinate system for VR headset in landscape mode
+                    // Landscape-Left (ROTATION_90):  Y→X, -X→Y
+                    // Landscape-Right (ROTATION_270): -Y→X, X→Y
                     val (axisX, axisY) = when (displayRotation) {
-                        android.view.Surface.ROTATION_270 -> {
-                            // Landscape-Right: Phone rotated 270° (or -90°)
-                            // Remapping: AXIS_MINUS_Y → new X, AXIS_X → new Y
+                        android.view.Surface.ROTATION_270 ->
                             Pair(SensorManager.AXIS_MINUS_Y, SensorManager.AXIS_X)
-                        }
-                        else -> {
-                            // Landscape-Left: Phone rotated 90° (default)
-                            // Remapping: AXIS_Y → new X, AXIS_MINUS_X → new Y
+                        else ->
                             Pair(SensorManager.AXIS_Y, SensorManager.AXIS_MINUS_X)
-                        }
                     }
 
                     SensorManager.remapCoordinateSystem(
                         rotationMatrix,
-                        axisX,  // new X-axis
-                        axisY,  // new Y-axis
+                        axisX,
+                        axisY,
                         remappedRotationMatrix
                     )
 
-                    // Send remapped rotation to renderer for head tracking
                     vrRenderer.updateHeadRotation(remappedRotationMatrix)
                 }
             }
