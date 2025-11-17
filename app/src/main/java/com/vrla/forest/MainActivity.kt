@@ -796,13 +796,13 @@ Kalorien: ${calories}kcal"""
                     val (axisX, axisY) = when (displayRotation) {
                         android.view.Surface.ROTATION_270 -> {
                             // Landscape-Right: Phone rotated 270° (or -90°)
-                            // Remapping: AXIS_Y → new X, AXIS_X → new Y
-                            Pair(SensorManager.AXIS_Y, SensorManager.AXIS_X)
+                            // Remapping: AXIS_MINUS_Y → new X, AXIS_X → new Y
+                            Pair(SensorManager.AXIS_MINUS_Y, SensorManager.AXIS_X)
                         }
                         else -> {
                             // Landscape-Left: Phone rotated 90° (default)
-                            // Remapping: AXIS_MINUS_Y → new X, AXIS_MINUS_X → new Y
-                            Pair(SensorManager.AXIS_MINUS_Y, SensorManager.AXIS_MINUS_X)
+                            // Remapping: AXIS_Y → new X, AXIS_MINUS_X → new Y
+                            Pair(SensorManager.AXIS_Y, SensorManager.AXIS_MINUS_X)
                         }
                     }
 
