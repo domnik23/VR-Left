@@ -327,7 +327,7 @@ class SettingsActivity : AppCompatActivity() {
         smoothingSeekBar.progress = (smoothing * 100).toInt() // 0.0 - 1.0
 
         // Step detection
-        val stepsBeforeStart = prefs.getInt("steps_before_video_start", 3)
+        val stepsBeforeStart = prefs.getInt("steps_before_video_start", 0)
         stepsBeforeStartSeekBar.progress = stepsBeforeStart // 0 - 10
 
         // Update display
@@ -407,7 +407,7 @@ class SettingsActivity : AppCompatActivity() {
         minSpeedMovingSeekBar.progress = 70 // 0.7x
         maxSpeedSeekBar.progress = 50 // 1.5x (1.0 + 0.5)
         smoothingSeekBar.progress = 30 // 0.3 (Normal)
-        stepsBeforeStartSeekBar.progress = 3 // 3 steps (short warm-up)
+        stepsBeforeStartSeekBar.progress = 0 // 0 steps (start immediately)
 
         Toast.makeText(this, "Auf Standardwerte zurückgesetzt", Toast.LENGTH_SHORT).show()
     }
