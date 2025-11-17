@@ -257,17 +257,18 @@ object AppConfig {
      * Allows delayed video start to give user time to get ready.
      * Video will start automatically after this many steps are detected.
      *
-     * Range: 0 - 20 steps
-     * Default: 0 (video starts immediately)
+     * Range: 0 - 10 steps
+     * Default: 3 steps (short warm-up)
      *
      * Use cases:
      * - 0: Video starts immediately on app launch
+     * - 3: Video starts after 3 steps (short warm-up, default)
      * - 5: Video starts after 5 steps (good for warm-up)
      * - 10: Video starts after 10 steps (more preparation time)
      *
      * @see MainActivity.onSensorChanged for video start logic
      */
-    @Volatile var stepsBeforeVideoStart = 0
+    @Volatile var stepsBeforeVideoStart = 3
 
     // ============================================================
     // PERSISTENCE
@@ -330,7 +331,7 @@ object AppConfig {
             speedSmoothingFactor = prefs.getFloat("speed_smoothing", 0.3f)
 
             // Step detection settings
-            stepsBeforeVideoStart = prefs.getInt("steps_before_video_start", 0)
+            stepsBeforeVideoStart = prefs.getInt("steps_before_video_start", 3)
         }
     }
 }
