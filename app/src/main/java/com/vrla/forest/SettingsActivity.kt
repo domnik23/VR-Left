@@ -265,13 +265,13 @@ class SettingsActivity : AppCompatActivity() {
     private fun loadSettings() {
         val prefs = getSharedPreferences("VRLAPrefs", Context.MODE_PRIVATE)
 
-        // Video
+        // Video rotation
         val rotation = prefs.getFloat("video_rotation", -90f)
         videoRotationSpinner.setSelection(when (rotation) {
             0f -> 0    // 0°
             90f -> 1   // 90° CW
             180f, -180f -> 2  // 180°
-            else -> 3  // 270° CW / -90°
+            else -> 3  // 270° CW / -90° (Default - calibrated)
         })
         volumeSeekBar.progress = prefs.getInt("video_volume", 50)
 
@@ -303,7 +303,7 @@ class SettingsActivity : AppCompatActivity() {
     private fun saveSettings() {
         val prefs = getSharedPreferences("VRLAPrefs", Context.MODE_PRIVATE).edit()
 
-        // Video
+        // Video rotation
         val rotation = when (videoRotationSpinner.selectedItemPosition) {
             0 -> 0f      // 0°
             1 -> 90f     // 90° CW
@@ -353,7 +353,7 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun resetToDefaults() {
-        videoRotationSpinner.setSelection(3) // -90° (Default to fix rotation issue)
+        videoRotationSpinner.setSelection(3) // 270° CW / -90° (Default - calibrated)
         volumeSeekBar.progress = 50
         stereoSwitch.isChecked = false
         ipdSeekBar.progress = 14 // 64mm

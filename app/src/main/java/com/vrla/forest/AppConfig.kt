@@ -58,7 +58,7 @@ object AppConfig {
      * Video orientation correction
      *
      * Rotation offset applied to model matrix to fix video orientation.
-     * Default: -90° (pitch down) to correct for camera pointing upward.
+     * Default: -90° (pitch down) - calibrated for landscape sensor remapping.
      *
      * This rotates the 360° sphere around X-axis (pitch) before head tracking is applied.
      */
@@ -265,7 +265,15 @@ object AppConfig {
             // Video settings
             videoVolume = prefs.getInt("video_volume", 50) / 100f
             stereoMode = prefs.getBoolean("stereo_mode", false)
-            videoRotation = prefs.getFloat("video_rotation", -90f)
+
+            // Video rotation with migration for landscape fix
+            // Old versions used 90° but new sensor remapping requires -90°
+            var rotation = prefs.getFloat("video_rotation", -90f)
+            if (rotation == 90f) {
+                rotation = -90f
+                prefs.edit().putFloat("video_rotation", -90f).apply()
+            }
+            videoRotation = rotation
 
             // VR settings
             ipd = prefs.getFloat("ipd", 0.064f)

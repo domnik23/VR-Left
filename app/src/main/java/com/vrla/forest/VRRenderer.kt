@@ -69,6 +69,8 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
     private var screenWidth = 1920
     private var screenHeight = 1080
 
+    private var displayRotation = android.view.Surface.ROTATION_0  // Track display rotation (currently unused)
+
     private var isVideoReadyToStart = false
     private var surfaceCreated = false
     private var videoEnded = false
@@ -174,14 +176,16 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
      * - View Matrix: Applies head tracking and stereo eye offset (IPD)
      * - Projection Matrix: Perspective projection for VR lenses
      *
-     * Key concepts:
-     * - IPD (Inter-Pupillary Distance): Eye separation for stereo 3D effect
-     * - Matrix multiplication order: translation * rotation (not rotation * translation)
-     *   This ensures IPD offset happens in camera space, not world space
+     * Video orientation is controlled by:
+     * - Base rotation from AppConfig (default: -90° for landscape mode)
+     * - Sensor remapping in MainActivity handles device rotation changes
+     *
+     * IPD (Inter-Pupillary Distance):
+     * - Eye separation creates stereo 3D effect
+     * - Applied as translation in camera space (not world space)
      */
     private fun setupViewMatrices() {
-        // Model matrix: Rotate to correct video orientation
-        // Uses videoRotation setting from AppConfig (adjustable in Settings)
+        // Model matrix: Rotate sphere to correct video orientation
         Matrix.setIdentityM(modelMatrix, 0)
         Matrix.rotateM(modelMatrix, 0, AppConfig.videoRotation, 1f, 0f, 0f)
 
@@ -670,6 +674,13 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
     fun setScreenDimensions(width: Int, height: Int) {
         screenWidth = width
         screenHeight = height
+    }
+
+    /**
+     * Set display rotation (tracked but currently unused)
+     */
+    fun setDisplayRotation(rotation: Int) {
+        displayRotation = rotation
     }
 
     /**
