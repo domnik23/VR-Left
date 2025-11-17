@@ -42,6 +42,8 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var maxSpeedValueText: TextView
     private lateinit var smoothingSeekBar: SeekBar
     private lateinit var smoothingValueText: TextView
+    private lateinit var stepsBeforeStartSeekBar: SeekBar
+    private lateinit var stepsBeforeStartValueText: TextView
     private lateinit var appVersionText: TextView
     private lateinit var resetButton: Button
     private lateinit var saveButton: Button
@@ -119,6 +121,8 @@ class SettingsActivity : AppCompatActivity() {
         maxSpeedValueText = findViewById(R.id.maxSpeedValueText)
         smoothingSeekBar = findViewById(R.id.smoothingSeekBar)
         smoothingValueText = findViewById(R.id.smoothingValueText)
+        stepsBeforeStartSeekBar = findViewById(R.id.stepsBeforeStartSeekBar)
+        stepsBeforeStartValueText = findViewById(R.id.stepsBeforeStartValueText)
         appVersionText = findViewById(R.id.appVersionText)
         resetButton = findViewById(R.id.resetButton)
         saveButton = findViewById(R.id.saveButton)
@@ -252,6 +256,18 @@ class SettingsActivity : AppCompatActivity() {
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
         })
 
+        stepsBeforeStartSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                stepsBeforeStartValueText.text = if (progress == 0) {
+                    "Sofort"
+                } else {
+                    "$progress Schritte"
+                }
+            }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
+
         resetButton.setOnClickListener {
             resetToDefaults()
         }
@@ -295,6 +311,10 @@ class SettingsActivity : AppCompatActivity() {
         val smoothing = prefs.getFloat("speed_smoothing", 0.3f)
         smoothingSeekBar.progress = (smoothing * 100).toInt() // 0.0 - 1.0
 
+        // Step detection
+        val stepsBeforeStart = prefs.getInt("steps_before_video_start", 0)
+        stepsBeforeStartSeekBar.progress = stepsBeforeStart // 0 - 20
+
         // Update display
         updateCurrentFolderDisplay()
         updateCurrentVideoDisplay()
@@ -335,6 +355,10 @@ class SettingsActivity : AppCompatActivity() {
         val smoothing = smoothingSeekBar.progress * 0.01f // 0.0 - 1.0
         prefs.putFloat("speed_smoothing", smoothing)
 
+        // Step detection
+        val stepsBeforeStart = stepsBeforeStartSeekBar.progress // 0 - 20
+        prefs.putInt("steps_before_video_start", stepsBeforeStart)
+
         prefs.apply()
 
         // Update AppConfig
@@ -348,6 +372,7 @@ class SettingsActivity : AppCompatActivity() {
         AppConfig.minSpeedMoving = minSpeedMoving
         AppConfig.maxSpeed = maxSpeed
         AppConfig.speedSmoothingFactor = smoothing
+        AppConfig.stepsBeforeVideoStart = stepsBeforeStart
 
         Toast.makeText(this, "Einstellungen gespeichert", Toast.LENGTH_SHORT).show()
     }
@@ -363,6 +388,7 @@ class SettingsActivity : AppCompatActivity() {
         minSpeedMovingSeekBar.progress = 70 // 0.7x
         maxSpeedSeekBar.progress = 50 // 1.5x (1.0 + 0.5)
         smoothingSeekBar.progress = 30 // 0.3 (Normal)
+        stepsBeforeStartSeekBar.progress = 0 // 0 steps (start immediately)
 
         Toast.makeText(this, "Auf Standardwerte zurückgesetzt", Toast.LENGTH_SHORT).show()
     }

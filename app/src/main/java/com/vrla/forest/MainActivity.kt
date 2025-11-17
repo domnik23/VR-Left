@@ -86,6 +86,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private var startTime = 0L
     private var totalSteps = 0
     private var sessionSteps = 0
+    private var stepsSinceStart = 0  // Steps counted before video starts
 
     private val rotationMatrix = FloatArray(9)
     private val remappedRotationMatrix = FloatArray(9)
@@ -526,9 +527,16 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             totalSteps = 0
         }
 
-        // Video will start immediately (video starts on app launch)
-        isVideoStarted = true
-        vrRenderer.startVideo()
+        // Video start behavior depends on stepsBeforeVideoStart setting
+        if (AppConfig.stepsBeforeVideoStart == 0) {
+            // Start immediately if no step delay is configured
+            isVideoStarted = true
+            vrRenderer.startVideo()
+        } else {
+            // Wait for configured number of steps before starting
+            stepsSinceStart = 0
+            isVideoStarted = false
+        }
 
         startUIUpdateLoop()
         calibrateOrientation()  // Auto-calibrate on start (v1.3 behavior)
@@ -657,15 +665,24 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private fun restartSession() {
         // Reset stats
         sessionSteps = 0
+        stepsSinceStart = 0
         startTime = System.currentTimeMillis()
-        isVideoStarted = false
         stepController.reset()
 
         // Hide finish overlay
         finishOverlay.visibility = View.GONE
 
-        // Restart video
-        vrRenderer.restartVideo()
+        // Check if we need to wait for steps before starting video
+        if (AppConfig.stepsBeforeVideoStart == 0) {
+            // Start immediately if no step delay is configured
+            isVideoStarted = true
+            vrRenderer.restartVideo()
+        } else {
+            // Wait for configured number of steps before starting
+            isVideoStarted = false
+            vrRenderer.restartVideo()
+            vrRenderer.pause()  // Pause video until steps are reached
+        }
 
         Toast.makeText(this, "Session restarted", Toast.LENGTH_SHORT).show()
     }
@@ -807,10 +824,21 @@ Kalorien: ${calories}kcal"""
                         totalSteps = currentTotal
                         stepController.addStep()
 
-                        // Start video on first step
+                        // Start video after configured number of steps
                         if (!isVideoStarted) {
-                            isVideoStarted = true
-                            vrRenderer.startVideo()
+                            stepsSinceStart += newSteps
+                            if (stepsSinceStart >= AppConfig.stepsBeforeVideoStart) {
+                                isVideoStarted = true
+                                vrRenderer.startVideo()
+                                // Show toast to indicate video has started
+                                if (AppConfig.stepsBeforeVideoStart > 0) {
+                                    Toast.makeText(
+                                        this,
+                                        "Video gestartet nach $stepsSinceStart Schritten",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            }
                         }
                     }
                 }
@@ -851,6 +879,7 @@ Kalorien: ${calories}kcal"""
 
                 // Reset session stats for new video
                 sessionSteps = 0
+                stepsSinceStart = 0
                 startTime = System.currentTimeMillis()
                 isVideoStarted = false
                 stepController.reset()
