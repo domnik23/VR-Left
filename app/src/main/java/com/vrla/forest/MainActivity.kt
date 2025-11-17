@@ -83,6 +83,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
     private var isVRActive = false
     private var isVideoStarted = false
+    private var waitingForStepsToResume = false  // True when waiting for steps to resume after restart
     private var startTime = 0L
     private var totalSteps = 0
     private var sessionSteps = 0
@@ -672,16 +673,19 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         // Hide finish overlay
         finishOverlay.visibility = View.GONE
 
-        // Check if we need to wait for steps before starting video
+        // Video start behavior depends on stepsBeforeVideoStart setting
         if (AppConfig.stepsBeforeVideoStart == 0) {
             // Start immediately if no step delay is configured
             isVideoStarted = true
+            waitingForStepsToResume = false
             vrRenderer.restartVideo()
         } else {
-            // Wait for configured number of steps before starting
+            // Wait for configured number of steps before starting video
+            // Restart video and pause it, then resume when steps are reached
             isVideoStarted = false
+            waitingForStepsToResume = true
             vrRenderer.restartVideo()
-            vrRenderer.pause()  // Pause video until steps are reached
+            vrRenderer.pause()
         }
 
         Toast.makeText(this, "Session restarted", Toast.LENGTH_SHORT).show()
@@ -829,7 +833,15 @@ Kalorien: ${calories}kcal"""
                             stepsSinceStart += newSteps
                             if (stepsSinceStart >= AppConfig.stepsBeforeVideoStart) {
                                 isVideoStarted = true
-                                vrRenderer.startVideo()
+
+                                // Use resume() if we're waiting after a restart, otherwise use startVideo()
+                                if (waitingForStepsToResume) {
+                                    vrRenderer.resume()
+                                    waitingForStepsToResume = false
+                                } else {
+                                    vrRenderer.startVideo()
+                                }
+
                                 // Show toast to indicate video has started
                                 if (AppConfig.stepsBeforeVideoStart > 0) {
                                     Toast.makeText(
