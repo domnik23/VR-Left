@@ -543,9 +543,10 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
      */
     fun calibrateOrientation() {
         if (hasHeadRotation) {
-            // Store inverse (transpose) of current rotation as calibration
-            // This will make current orientation the new "forward" direction
-            Matrix.transposeM(calibrationMatrix, 0, headRotationMatrix, 0)
+            // Store inverse (transpose) of UNCALIBRATED rotation as calibration
+            // IMPORTANT: Use uncalibratedRotation, not headRotationMatrix!
+            // Using headRotationMatrix would stack calibrations on top of each other
+            Matrix.transposeM(calibrationMatrix, 0, uncalibratedRotation, 0)
             isCalibrated = true
         }
     }
