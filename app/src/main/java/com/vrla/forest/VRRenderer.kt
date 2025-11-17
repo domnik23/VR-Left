@@ -128,7 +128,7 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
         screenHeight = height
         GLES30.glViewport(0, 0, width, height)
         val ratio = width.toFloat() / height.toFloat() / 2f
-        Matrix.perspectiveM(projectionMatrix, 0, 90f, ratio, 0.1f, 100f)
+        Matrix.perspectiveM(projectionMatrix, 0, AppConfig.fieldOfView, ratio, 0.1f, 100f)
     }
 
     override fun onDrawFrame(gl: GL10?) {
@@ -613,6 +613,15 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
 
     fun updateVolume() {
         mediaPlayer?.setVolume(AppConfig.videoVolume, AppConfig.videoVolume)
+    }
+
+    /**
+     * Update projection matrix when FOV setting changes
+     * Called from MainActivity.onResume() after loading settings
+     */
+    fun updateProjectionMatrix() {
+        val ratio = screenWidth.toFloat() / screenHeight.toFloat() / 2f
+        Matrix.perspectiveM(projectionMatrix, 0, AppConfig.fieldOfView, ratio, 0.1f, 100f)
     }
 
     fun release() {

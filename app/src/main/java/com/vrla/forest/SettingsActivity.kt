@@ -30,6 +30,8 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var stereoSwitch: SwitchCompat
     private lateinit var ipdSeekBar: SeekBar
     private lateinit var ipdValueText: TextView
+    private lateinit var fovSeekBar: SeekBar
+    private lateinit var fovValueText: TextView
     private lateinit var strideLengthSeekBar: SeekBar
     private lateinit var strideLengthValueText: TextView
     private lateinit var caloriesSeekBar: SeekBar
@@ -109,6 +111,8 @@ class SettingsActivity : AppCompatActivity() {
         videoRotationSpinner.adapter = adapter
         ipdSeekBar = findViewById(R.id.ipdSeekBar)
         ipdValueText = findViewById(R.id.ipdValueText)
+        fovSeekBar = findViewById(R.id.fovSeekBar)
+        fovValueText = findViewById(R.id.fovValueText)
         strideLengthSeekBar = findViewById(R.id.strideLengthSeekBar)
         strideLengthValueText = findViewById(R.id.strideLengthValueText)
         caloriesSeekBar = findViewById(R.id.caloriesSeekBar)
@@ -191,6 +195,15 @@ class SettingsActivity : AppCompatActivity() {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 val ipd = 50 + progress // 50mm to 80mm
                 ipdValueText.text = "${ipd}mm"
+            }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
+
+        fovSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                val fov = 60 + progress // 60° to 100°
+                fovValueText.text = "${fov}°"
             }
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
@@ -295,6 +308,8 @@ class SettingsActivity : AppCompatActivity() {
         stereoSwitch.isChecked = prefs.getBoolean("stereo_mode", false)
         val ipdMm = (prefs.getFloat("ipd", 0.064f) * 1000).toInt()
         ipdSeekBar.progress = ipdMm - 50
+        val fov = prefs.getFloat("field_of_view", 75f).toInt()
+        fovSeekBar.progress = fov - 60 // Range: 60-100°
 
         // Fitness
         val strideLength = prefs.getFloat("stride_length", 0.75f)
@@ -338,6 +353,8 @@ class SettingsActivity : AppCompatActivity() {
         prefs.putBoolean("stereo_mode", stereoSwitch.isChecked)
         val ipdMm = 50 + ipdSeekBar.progress
         prefs.putFloat("ipd", ipdMm / 1000f)
+        val fov = 60 + fovSeekBar.progress // 60° to 100°
+        prefs.putFloat("field_of_view", fov.toFloat())
 
         // Fitness
         val strideLength = 0.5f + strideLengthSeekBar.progress * 0.01f
@@ -366,6 +383,7 @@ class SettingsActivity : AppCompatActivity() {
         AppConfig.videoVolume = volumeSeekBar.progress / 100f
         AppConfig.stereoMode = stereoSwitch.isChecked
         AppConfig.ipd = ipdMm / 1000f
+        AppConfig.fieldOfView = fov.toFloat()
         AppConfig.averageStrideLength = strideLength
         AppConfig.caloriesPerKm = caloriesPerKm
         AppConfig.minSpeed = minSpeed
@@ -382,6 +400,7 @@ class SettingsActivity : AppCompatActivity() {
         volumeSeekBar.progress = 50
         stereoSwitch.isChecked = false
         ipdSeekBar.progress = 14 // 64mm
+        fovSeekBar.progress = 15 // 75° (60 + 15)
         strideLengthSeekBar.progress = 25 // 0.75m
         caloriesSeekBar.progress = 30 // 60 kcal/km
         minSpeedSeekBar.progress = 40 // 0.4x

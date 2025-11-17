@@ -899,8 +899,9 @@ Kalorien: ${calories}kcal"""
                 // Always resume video when returning from settings
                 vrRenderer.resume()
             }
-            // Update volume if player is running
+            // Update volume and FOV if player is running
             vrRenderer.updateVolume()
+            vrRenderer.updateProjectionMatrix()
         }
 
         // Re-register sensor listeners if VR is active

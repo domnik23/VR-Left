@@ -153,6 +153,28 @@ object AppConfig {
      */
     @Volatile var ipd = 0.064f
 
+    /**
+     * FOV - Field of View
+     *
+     * Vertical field of view angle in degrees for VR camera perspective.
+     * Controls how much of the 360° scene is visible at once.
+     *
+     * Range: 60 - 100 degrees
+     * Default: 75° (balanced, natural view)
+     *
+     * Effects:
+     * - Lower FOV (60-70°): Video appears farther away, less distortion, more "zoomed in"
+     * - Medium FOV (75-80°): Balanced, natural perspective
+     * - Higher FOV (85-100°): Video appears closer, more immersive but with fisheye distortion
+     *
+     * Symptoms of incorrect FOV:
+     * - Too high: Video too close, visible curvature/distortion
+     * - Too low: Video too far, tunnel vision effect
+     *
+     * @see VRRenderer.onSurfaceChanged for FOV application in projection matrix
+     */
+    @Volatile var fieldOfView = 75f
+
     // ============================================================
     // FITNESS TRACKING
     // ============================================================
@@ -295,6 +317,7 @@ object AppConfig {
 
             // VR settings
             ipd = prefs.getFloat("ipd", 0.064f)
+            fieldOfView = prefs.getFloat("field_of_view", 75f)
 
             // Fitness tracking
             averageStrideLength = prefs.getFloat("stride_length", 0.75f)
