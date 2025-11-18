@@ -503,6 +503,9 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                 // Get folder tree URI if available
                 val folderTreeUri = videoPrefs.getVideoFolderUri()
 
+                // Clear cache to ensure fresh JSON data is loaded
+                TimecodeParameterLoader.clearCache()
+
                 // Try to load timecode parameters for this video
                 timecodeLoader = TimecodeParameterLoader(this)
                 if (timecodeLoader!!.loadParametersForVideo(videoFileName, uri, folderTreeUri)) {
