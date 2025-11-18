@@ -205,7 +205,13 @@ class SettingsActivity : AppCompatActivity() {
         }
 
         selectVideoButton.setOnClickListener {
-            openVideoPicker()
+            // Check if folder is selected, if yes show video list
+            val folderTreeUri = videoPrefs.getVideoFolderUri()
+            if (folderTreeUri != null) {
+                showVideoListFromFolder(folderTreeUri)
+            } else {
+                openVideoPicker()
+            }
         }
 
         selectOtherVideoButton.setOnClickListener {

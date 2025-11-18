@@ -543,6 +543,8 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             isVideoStarted = false
             waitingForStepsToResume = false  // Initial start, not a restart
             startTime = 0  // Timer not started yet
+            // Ensure video doesn't start automatically
+            vrRenderer.pause()
         }
 
         startUIUpdateLoop()
@@ -914,18 +916,22 @@ Kalorien: ${calories}kcal"""
                 finishOverlay.visibility = View.GONE
 
                 // Video start behavior depends on stepsBeforeVideoStart setting
+                // Always pause first, then start if needed
+                vrRenderer.pause()
+
                 if (AppConfig.stepsBeforeVideoStart == 0) {
                     // Video starts immediately
                     isVideoStarted = true
                     waitingForStepsToResume = false
                     startTime = System.currentTimeMillis()  // Start timer when video starts
+                    vrRenderer.resume()  // Resume video immediately
                 } else {
                     // Wait for steps before starting video
                     // Timer will start when video actually starts (in onSensorChanged)
                     isVideoStarted = false
                     waitingForStepsToResume = false
                     startTime = 0  // Timer not started yet
-                    vrRenderer.pause()  // Pause until steps are reached
+                    // Video stays paused until steps are reached
                 }
             } else {
                 // VR not started yet - initialize with new video
