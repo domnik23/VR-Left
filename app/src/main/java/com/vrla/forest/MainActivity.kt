@@ -32,6 +32,8 @@ import android.provider.DocumentsContract
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 class MainActivity : AppCompatActivity(), SensorEventListener {
 
@@ -715,7 +717,7 @@ Kalorien: ${calories}kcal"""
         lifecycleScope.launch {
             while (isVRActive) {
                 updateUI()
-                delay(100)
+                delay(500)  // Reduced from 100ms to 500ms (2 Hz) for better battery efficiency
             }
         }
     }
@@ -999,6 +1001,30 @@ Kalorien: ${calories}kcal"""
      * @param folderTreeUri Tree URI of the selected folder
      */
     private fun showVideoListFromFolder(folderTreeUri: Uri) {
+        // Run file queries on background thread to prevent UI freezing
+        lifecycleScope.launch(Dispatchers.IO) {
+            val videos = loadVideosFromFolder(folderTreeUri)
+
+            // Switch back to main thread to update UI
+            withContext(Dispatchers.Main) {
+                if (videos.isEmpty()) {
+                    // No videos found - show persistent info message
+                    showInfoBox(
+                        "Keine Videos im Ordner gefunden.\nÖffne Einstellungen (⋮) um einen anderen Ordner zu wählen.",
+                        durationMs = 0 // Stay visible until user acts
+                    )
+                } else {
+                    // Show video list
+                    showVideoList(videos)
+                }
+            }
+        }
+    }
+
+    /**
+     * Load videos from folder (runs on background thread)
+     */
+    private fun loadVideosFromFolder(folderTreeUri: Uri): List<VideoItem> {
         val videos = mutableListOf<VideoItem>()
         var cursor: Cursor? = null
 
@@ -1052,16 +1078,7 @@ Kalorien: ${calories}kcal"""
             cursor?.close()
         }
 
-        if (videos.isEmpty()) {
-            // No videos found - show persistent info message
-            showInfoBox(
-                "Keine Videos im Ordner gefunden.\nÖffne Einstellungen (⋮) um einen anderen Ordner zu wählen.",
-                durationMs = 0 // Stay visible until user acts
-            )
-        } else {
-            // Show video list
-            showVideoList(videos)
-        }
+        return videos
     }
 
     /**

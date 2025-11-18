@@ -84,6 +84,7 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
     private var timecodeLoader: TimecodeParameterLoader? = null
     private var frameCounter = 0
     private val updateInterval = 30 // Update timecode parameters every 30 frames (~0.5 seconds at 60fps)
+    private var cachedVideoPositionMs = 0L // Cached position to avoid frequent MediaPlayer queries
 
     override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {
         // Reset released flag if surface is being recreated
@@ -398,21 +399,26 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
 
     private fun createAndConfigureMediaPlayer() {
         mediaPlayer?.release()
+        cachedVideoPositionMs = 0L // Reset cached position for new video
+
         mediaPlayer = MediaPlayer().apply {
             setDataSource(context, videoUri!!)
             setSurface(Surface(surfaceTexture))
             setupMediaListeners(this)
-            prepare()
             isLooping = false
-            playbackParams = playbackParams.setSpeed(playbackSpeed)
-            setVolume(AppConfig.videoVolume, AppConfig.videoVolume)
-            start()
+
+            // Use async preparation for better performance
+            setOnPreparedListener { player ->
+                player.playbackParams = player.playbackParams.setSpeed(playbackSpeed)
+                player.setVolume(AppConfig.videoVolume, AppConfig.videoVolume)
+                player.start()
+
+                videoEnded = false
+                // Notify that video has started
+                onVideoStarted?.invoke()
+            }
+            prepareAsync()
         }
-
-        videoEnded = false
-
-        // Notify that video has started
-        onVideoStarted?.invoke()
     }
 
     private fun setupMediaListeners(player: MediaPlayer) {
@@ -737,22 +743,21 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
 
         // Only update every N frames to reduce overhead
         frameCounter++
-        if (frameCounter < updateInterval) {
-            return
-        }
-        frameCounter = 0
+        if (frameCounter >= updateInterval) {
+            frameCounter = 0
 
-        // Get current video time
-        val currentTimeMs = try {
-            mediaPlayer?.currentPosition?.toLong() ?: 0L
-        } catch (e: Exception) {
-            android.util.Log.w("VRRenderer", "Error getting current position: ${e.message}")
-            0L
+            // Update cached position - this is the only blocking call to MediaPlayer
+            cachedVideoPositionMs = try {
+                mediaPlayer?.currentPosition?.toLong() ?: 0L
+            } catch (e: Exception) {
+                android.util.Log.w("VRRenderer", "Error getting current position: ${e.message}")
+                0L
+            }
         }
 
-        // Update timecode parameters
+        // Use cached position for timecode parameters (no blocking call)
         timecodeLoader?.let { loader ->
-            if (loader.updateForTime(currentTimeMs)) {
+            if (loader.updateForTime(cachedVideoPositionMs)) {
                 // Parameters were updated - apply volume change if needed
                 val params = loader.getCurrentParameters()
                 params?.videoVolume?.let { volume ->

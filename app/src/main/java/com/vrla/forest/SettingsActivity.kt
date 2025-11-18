@@ -17,8 +17,12 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.SwitchCompat
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class SettingsActivity : AppCompatActivity() {
 
@@ -517,6 +521,30 @@ class SettingsActivity : AppCompatActivity() {
      * @param folderTreeUri Tree URI of the selected folder
      */
     private fun showVideoListFromFolder(folderTreeUri: Uri) {
+        // Run file queries on background thread to prevent UI freezing
+        lifecycleScope.launch(Dispatchers.IO) {
+            val videos = loadVideosFromFolder(folderTreeUri)
+
+            // Switch back to main thread to update UI
+            withContext(Dispatchers.Main) {
+                if (videos.isEmpty()) {
+                    Toast.makeText(
+                        this@SettingsActivity,
+                        "No videos found in folder",
+                        Toast.LENGTH_LONG
+                    ).show()
+                } else {
+                    // Show video list
+                    showVideoList(videos)
+                }
+            }
+        }
+    }
+
+    /**
+     * Load videos from folder (runs on background thread)
+     */
+    private fun loadVideosFromFolder(folderTreeUri: Uri): List<VideoItem> {
         val videos = mutableListOf<VideoItem>()
         var cursor: Cursor? = null
 
@@ -570,16 +598,7 @@ class SettingsActivity : AppCompatActivity() {
             cursor?.close()
         }
 
-        if (videos.isEmpty()) {
-            Toast.makeText(
-                this,
-                "No videos found in folder",
-                Toast.LENGTH_LONG
-            ).show()
-        } else {
-            // Show video list
-            showVideoList(videos)
-        }
+        return videos
     }
 
     /**
