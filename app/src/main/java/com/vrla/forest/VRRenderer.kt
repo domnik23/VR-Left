@@ -584,9 +584,7 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
             try {
                 it.seekTo(0)
                 it.playbackParams = it.playbackParams.setSpeed(playbackSpeed)
-                if (!it.isPlaying) {
-                    it.start()
-                }
+                // Don't auto-start - let MainActivity control when to start based on step counter setting
                 videoEnded = false
             } catch (e: Exception) {
                 android.util.Log.e("VRRenderer", "Error restarting video: ${e.message}")
@@ -626,7 +624,7 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
                 isLooping = false
                 playbackParams = playbackParams.setSpeed(playbackSpeed)
                 setVolume(AppConfig.videoVolume, AppConfig.videoVolume)
-                start()
+                // Don't auto-start - let MainActivity control when to start based on step counter setting
             }
 
             videoEnded = false

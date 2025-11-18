@@ -673,21 +673,21 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         finishOverlay.visibility = View.GONE
 
         // Video start behavior depends on stepsBeforeVideoStart setting
+        vrRenderer.restartVideo()  // First reset video to position 0
+
         if (AppConfig.stepsBeforeVideoStart == 0) {
             // Start immediately if no step delay is configured
             isVideoStarted = true
             waitingForStepsToResume = false
             startTime = System.currentTimeMillis()  // Start timer when video starts
-            vrRenderer.restartVideo()
+            vrRenderer.resume()  // Explicitly start the video
         } else {
             // Wait for configured number of steps before starting video
-            // Restart video and pause it, then resume when steps are reached
             // Timer will start when video actually starts (in onSensorChanged)
             isVideoStarted = false
             waitingForStepsToResume = true
             startTime = 0  // Timer not started yet
-            vrRenderer.restartVideo()
-            vrRenderer.pause()
+            vrRenderer.pause()  // Ensure video stays paused
         }
 
         Toast.makeText(this, "Session restarted", Toast.LENGTH_SHORT).show()
@@ -919,7 +919,7 @@ Kalorien: ${calories}kcal"""
                     }
                 }
 
-                vrRenderer.loadNewVideo()
+                vrRenderer.loadNewVideo()  // Load new video (doesn't auto-start)
 
                 // Reset session stats for new video
                 sessionSteps = 0
@@ -928,22 +928,19 @@ Kalorien: ${calories}kcal"""
                 finishOverlay.visibility = View.GONE
 
                 // Video start behavior depends on stepsBeforeVideoStart setting
-                // Always pause first, then start if needed
-                vrRenderer.pause()
-
                 if (AppConfig.stepsBeforeVideoStart == 0) {
                     // Video starts immediately
                     isVideoStarted = true
                     waitingForStepsToResume = false
                     startTime = System.currentTimeMillis()  // Start timer when video starts
-                    vrRenderer.resume()  // Resume video immediately
+                    vrRenderer.resume()  // Explicitly start the video
                 } else {
                     // Wait for steps before starting video
                     // Timer will start when video actually starts (in onSensorChanged)
                     isVideoStarted = false
                     waitingForStepsToResume = false
                     startTime = 0  // Timer not started yet
-                    // Video stays paused until steps are reached
+                    vrRenderer.pause()  // Ensure video stays paused
                 }
             } else {
                 // VR not started yet - initialize with new video
