@@ -127,6 +127,35 @@ object AppConfig {
      */
     @Volatile var speedSmoothingFactor = 0.3f
 
+    /**
+     * Acceleration curve exponent
+     *
+     * Controls how the playback speed responds to step frequency changes.
+     * Creates a non-linear response curve that makes it easier to maintain speeds around 1.0x.
+     *
+     * Range: 1.0 - 3.0
+     * Default: 1.0 (linear response)
+     *
+     * How it works:
+     * - 1.0: Linear response (standard behavior)
+     * - 1.5: Moderate dead-zone around 1.0x (easier to maintain normal speed)
+     * - 2.0: Stronger dead-zone around 1.0x (very stable around normal speed)
+     * - 3.0: Maximum dead-zone (most resistant to speed changes near 1.0x)
+     *
+     * The curve makes speed changes:
+     * - Less sensitive near 1.0x (dead-zone)
+     * - More sensitive at low speeds (faster acceleration from idle)
+     * - More sensitive at high speeds (faster acceleration to max speed)
+     *
+     * Use cases:
+     * - 1.0: Prefer responsive speed changes at all levels
+     * - 1.5-2.0: Want stable jogging speed without constant fluctuation
+     * - 2.5-3.0: Maximum stability for maintaining steady pace
+     *
+     * @see StepController.applyAccelerationCurve for curve implementation
+     */
+    @Volatile var accelerationCurve = 1.0f
+
     // ============================================================
     // VR SETTINGS
     // ============================================================
@@ -152,6 +181,28 @@ object AppConfig {
      * @see VRRenderer.setupViewMatrices for IPD application
      */
     @Volatile var ipd = 0.064f
+
+    /**
+     * FOV - Field of View
+     *
+     * Vertical field of view angle in degrees for VR camera perspective.
+     * Controls how much of the 360° scene is visible at once.
+     *
+     * Range: 60 - 100 degrees
+     * Default: 75° (balanced, natural view)
+     *
+     * Effects:
+     * - Lower FOV (60-70°): Video appears farther away, less distortion, more "zoomed in"
+     * - Medium FOV (75-80°): Balanced, natural perspective
+     * - Higher FOV (85-100°): Video appears closer, more immersive but with fisheye distortion
+     *
+     * Symptoms of incorrect FOV:
+     * - Too high: Video too close, visible curvature/distortion
+     * - Too low: Video too far, tunnel vision effect
+     *
+     * @see VRRenderer.onSurfaceChanged for FOV application in projection matrix
+     */
+    @Volatile var fieldOfView = 75f
 
     // ============================================================
     // FITNESS TRACKING
@@ -229,6 +280,25 @@ object AppConfig {
      */
     @Volatile var stepWindowMs = 10000L
 
+    /**
+     * Number of steps before video starts playing
+     *
+     * Allows delayed video start to give user time to get ready.
+     * Video will start automatically after this many steps are detected.
+     *
+     * Range: 0 - 10 steps
+     * Default: 3 steps (short warm-up)
+     *
+     * Use cases:
+     * - 0: Video starts immediately on app launch
+     * - 3: Video starts after 3 steps (short warm-up, default)
+     * - 5: Video starts after 5 steps (good for warm-up)
+     * - 10: Video starts after 10 steps (more preparation time)
+     *
+     * @see MainActivity.onSensorChanged for video start logic
+     */
+    @Volatile var stepsBeforeVideoStart = 3
+
     // ============================================================
     // PERSISTENCE
     // ============================================================
@@ -277,6 +347,7 @@ object AppConfig {
 
             // VR settings
             ipd = prefs.getFloat("ipd", 0.064f)
+            fieldOfView = prefs.getFloat("field_of_view", 75f)
 
             // Fitness tracking
             averageStrideLength = prefs.getFloat("stride_length", 0.75f)
@@ -287,6 +358,10 @@ object AppConfig {
             minSpeedMoving = prefs.getFloat("min_speed_moving", 0.7f)
             maxSpeed = prefs.getFloat("max_speed", 1.5f)
             speedSmoothingFactor = prefs.getFloat("speed_smoothing", 0.3f)
+            accelerationCurve = prefs.getFloat("acceleration_curve", 1.0f)
+
+            // Step detection settings
+            stepsBeforeVideoStart = prefs.getInt("steps_before_video_start", 3)
         }
     }
 }

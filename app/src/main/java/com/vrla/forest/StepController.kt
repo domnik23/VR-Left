@@ -1,6 +1,8 @@
 ﻿package com.vrla.forest
 
+import kotlin.math.abs
 import kotlin.math.max
+import kotlin.math.pow
 
 /**
  * Step-based video playback speed controller
@@ -84,10 +86,11 @@ class StepController {
      * 1. Count steps within time window
      * 2. Calculate steps per minute
      * 3. Map to playback speed using linear interpolation
+     * 4. Apply acceleration curve for non-linear response
      *
      * Speed ranges:
      * - < 10 steps/min: Idle (minSpeed = 0.4x)
-     * - 10-120 steps/min: Walking to jogging (linear interpolation)
+     * - 10-120 steps/min: Walking to jogging (linear or curved interpolation)
      * - ≥ 120 steps/min: Fast jogging (maxSpeed = 1.5x)
      *
      * Note: This calculates the TARGET speed. The actual speed is smoothed
@@ -115,11 +118,65 @@ class StepController {
                 AppConfig.maxSpeed
             }
             else -> {
-                // Linear interpolation between minSpeedMoving and maxSpeed
+                // Calculate linear progress (0.0 to 1.0)
                 val range = MAX_STEPS_PER_MINUTE - MIN_STEPS_PER_MINUTE
-                val progress = (stepsPerMinute - MIN_STEPS_PER_MINUTE) / range
-                AppConfig.minSpeedMoving + progress * (AppConfig.maxSpeed - AppConfig.minSpeedMoving)
+                val linearProgress = (stepsPerMinute - MIN_STEPS_PER_MINUTE) / range
+
+                // Apply acceleration curve for non-linear response
+                val curvedProgress = applyAccelerationCurve(linearProgress)
+
+                // Interpolate speed based on curved progress
+                AppConfig.minSpeedMoving + curvedProgress * (AppConfig.maxSpeed - AppConfig.minSpeedMoving)
             }
+        }
+    }
+
+    /**
+     * Apply non-linear acceleration curve to progress value
+     *
+     * Creates a curve that is less sensitive around the middle (0.5 = 1.0x speed)
+     * and more sensitive at the extremes. This makes it easier to maintain speeds
+     * around 1.0x without constant fluctuation.
+     *
+     * Algorithm:
+     * 1. Calculate distance from center (0.5)
+     * 2. Apply power function: distance^exponent
+     * 3. Reconstruct progress from modified distance
+     *
+     * For exponent = 1.0: Linear (no change)
+     * For exponent > 1.0: Flatter around center, steeper at edges
+     *
+     * Example with exponent = 2.0:
+     * - Input 0.0 -> Output 0.0 (no change)
+     * - Input 0.25 -> Output 0.125 (slower acceleration)
+     * - Input 0.5 -> Output 0.5 (no change at center)
+     * - Input 0.75 -> Output 0.875 (slower acceleration)
+     * - Input 1.0 -> Output 1.0 (no change)
+     *
+     * @param progress Linear progress value (0.0 to 1.0)
+     * @return Curved progress value (0.0 to 1.0)
+     */
+    private fun applyAccelerationCurve(progress: Float): Float {
+        if (AppConfig.accelerationCurve == 1.0f) {
+            // Linear mode - no curve applied
+            return progress
+        }
+
+        // Center point (corresponds to 1.0x speed)
+        val center = 0.5f
+
+        // Calculate distance from center
+        val distance = abs(progress - center)
+
+        // Apply power function to distance
+        // Higher exponent = flatter curve around center
+        val modifiedDistance = distance.pow(AppConfig.accelerationCurve)
+
+        // Reconstruct progress from modified distance
+        return if (progress < center) {
+            center - modifiedDistance
+        } else {
+            center + modifiedDistance
         }
     }
 

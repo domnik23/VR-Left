@@ -30,6 +30,8 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var stereoSwitch: SwitchCompat
     private lateinit var ipdSeekBar: SeekBar
     private lateinit var ipdValueText: TextView
+    private lateinit var fovSeekBar: SeekBar
+    private lateinit var fovValueText: TextView
     private lateinit var strideLengthSeekBar: SeekBar
     private lateinit var strideLengthValueText: TextView
     private lateinit var caloriesSeekBar: SeekBar
@@ -42,6 +44,10 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var maxSpeedValueText: TextView
     private lateinit var smoothingSeekBar: SeekBar
     private lateinit var smoothingValueText: TextView
+    private lateinit var accelerationCurveSeekBar: SeekBar
+    private lateinit var accelerationCurveValueText: TextView
+    private lateinit var stepsBeforeStartSeekBar: SeekBar
+    private lateinit var stepsBeforeStartValueText: TextView
     private lateinit var appVersionText: TextView
     private lateinit var resetButton: Button
     private lateinit var saveButton: Button
@@ -107,6 +113,8 @@ class SettingsActivity : AppCompatActivity() {
         videoRotationSpinner.adapter = adapter
         ipdSeekBar = findViewById(R.id.ipdSeekBar)
         ipdValueText = findViewById(R.id.ipdValueText)
+        fovSeekBar = findViewById(R.id.fovSeekBar)
+        fovValueText = findViewById(R.id.fovValueText)
         strideLengthSeekBar = findViewById(R.id.strideLengthSeekBar)
         strideLengthValueText = findViewById(R.id.strideLengthValueText)
         caloriesSeekBar = findViewById(R.id.caloriesSeekBar)
@@ -119,6 +127,10 @@ class SettingsActivity : AppCompatActivity() {
         maxSpeedValueText = findViewById(R.id.maxSpeedValueText)
         smoothingSeekBar = findViewById(R.id.smoothingSeekBar)
         smoothingValueText = findViewById(R.id.smoothingValueText)
+        accelerationCurveSeekBar = findViewById(R.id.accelerationCurveSeekBar)
+        accelerationCurveValueText = findViewById(R.id.accelerationCurveValueText)
+        stepsBeforeStartSeekBar = findViewById(R.id.stepsBeforeStartSeekBar)
+        stepsBeforeStartValueText = findViewById(R.id.stepsBeforeStartValueText)
         appVersionText = findViewById(R.id.appVersionText)
         resetButton = findViewById(R.id.resetButton)
         saveButton = findViewById(R.id.saveButton)
@@ -192,6 +204,15 @@ class SettingsActivity : AppCompatActivity() {
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
         })
 
+        fovSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                val fov = 60 + progress // 60° to 100°
+                fovValueText.text = "${fov}°"
+            }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
+
         strideLengthSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 val stride = 0.5f + progress * 0.01f // 0.5m to 1.0m
@@ -252,6 +273,32 @@ class SettingsActivity : AppCompatActivity() {
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
         })
 
+        accelerationCurveSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                val curve = 1.0f + progress * 0.01f // 1.0 to 3.0
+                accelerationCurveValueText.text = when {
+                    curve < 1.2f -> "Linear"
+                    curve < 1.7f -> "Moderat"
+                    curve < 2.3f -> "Stark"
+                    else -> "Sehr stark"
+                }
+            }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
+
+        stepsBeforeStartSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                stepsBeforeStartValueText.text = if (progress == 0) {
+                    "Sofort"
+                } else {
+                    "$progress Schritte"
+                }
+            }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
+
         resetButton.setOnClickListener {
             resetToDefaults()
         }
@@ -279,6 +326,8 @@ class SettingsActivity : AppCompatActivity() {
         stereoSwitch.isChecked = prefs.getBoolean("stereo_mode", false)
         val ipdMm = (prefs.getFloat("ipd", 0.064f) * 1000).toInt()
         ipdSeekBar.progress = ipdMm - 50
+        val fov = prefs.getFloat("field_of_view", 75f).toInt()
+        fovSeekBar.progress = fov - 60 // Range: 60-100°
 
         // Fitness
         val strideLength = prefs.getFloat("stride_length", 0.75f)
@@ -294,6 +343,12 @@ class SettingsActivity : AppCompatActivity() {
         maxSpeedSeekBar.progress = ((maxSpeed - 1.0f) * 100).toInt() // 1.0 - 2.0
         val smoothing = prefs.getFloat("speed_smoothing", 0.3f)
         smoothingSeekBar.progress = (smoothing * 100).toInt() // 0.0 - 1.0
+        val accelerationCurve = prefs.getFloat("acceleration_curve", 1.0f)
+        accelerationCurveSeekBar.progress = ((accelerationCurve - 1.0f) * 100).toInt() // 1.0 - 3.0
+
+        // Step detection
+        val stepsBeforeStart = prefs.getInt("steps_before_video_start", 3)
+        stepsBeforeStartSeekBar.progress = stepsBeforeStart // 0 - 10
 
         // Update display
         updateCurrentFolderDisplay()
@@ -318,6 +373,8 @@ class SettingsActivity : AppCompatActivity() {
         prefs.putBoolean("stereo_mode", stereoSwitch.isChecked)
         val ipdMm = 50 + ipdSeekBar.progress
         prefs.putFloat("ipd", ipdMm / 1000f)
+        val fov = 60 + fovSeekBar.progress // 60° to 100°
+        prefs.putFloat("field_of_view", fov.toFloat())
 
         // Fitness
         val strideLength = 0.5f + strideLengthSeekBar.progress * 0.01f
@@ -334,6 +391,12 @@ class SettingsActivity : AppCompatActivity() {
         prefs.putFloat("max_speed", maxSpeed)
         val smoothing = smoothingSeekBar.progress * 0.01f // 0.0 - 1.0
         prefs.putFloat("speed_smoothing", smoothing)
+        val accelerationCurve = 1.0f + accelerationCurveSeekBar.progress * 0.01f // 1.0 - 3.0
+        prefs.putFloat("acceleration_curve", accelerationCurve)
+
+        // Step detection
+        val stepsBeforeStart = stepsBeforeStartSeekBar.progress // 0 - 10
+        prefs.putInt("steps_before_video_start", stepsBeforeStart)
 
         prefs.apply()
 
@@ -342,12 +405,15 @@ class SettingsActivity : AppCompatActivity() {
         AppConfig.videoVolume = volumeSeekBar.progress / 100f
         AppConfig.stereoMode = stereoSwitch.isChecked
         AppConfig.ipd = ipdMm / 1000f
+        AppConfig.fieldOfView = fov.toFloat()
         AppConfig.averageStrideLength = strideLength
         AppConfig.caloriesPerKm = caloriesPerKm
         AppConfig.minSpeed = minSpeed
         AppConfig.minSpeedMoving = minSpeedMoving
         AppConfig.maxSpeed = maxSpeed
         AppConfig.speedSmoothingFactor = smoothing
+        AppConfig.accelerationCurve = accelerationCurve
+        AppConfig.stepsBeforeVideoStart = stepsBeforeStart
 
         Toast.makeText(this, "Einstellungen gespeichert", Toast.LENGTH_SHORT).show()
     }
@@ -357,12 +423,15 @@ class SettingsActivity : AppCompatActivity() {
         volumeSeekBar.progress = 50
         stereoSwitch.isChecked = false
         ipdSeekBar.progress = 14 // 64mm
+        fovSeekBar.progress = 15 // 75° (60 + 15)
         strideLengthSeekBar.progress = 25 // 0.75m
         caloriesSeekBar.progress = 30 // 60 kcal/km
         minSpeedSeekBar.progress = 40 // 0.4x
         minSpeedMovingSeekBar.progress = 70 // 0.7x
         maxSpeedSeekBar.progress = 50 // 1.5x (1.0 + 0.5)
         smoothingSeekBar.progress = 30 // 0.3 (Normal)
+        accelerationCurveSeekBar.progress = 0 // 1.0 (Linear)
+        stepsBeforeStartSeekBar.progress = 3 // 3 steps (short warm-up)
 
         Toast.makeText(this, "Auf Standardwerte zurückgesetzt", Toast.LENGTH_SHORT).show()
     }

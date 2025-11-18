@@ -74,7 +74,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private var savedPlaybackPosition = 0
 
     // Volume button double-press detection
-    private var lastVolumeUpPressTime = 0L
     private var lastVolumeDownPressTime = 0L
     private val DOUBLE_PRESS_INTERVAL = 500L // milliseconds
 
@@ -83,9 +82,11 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
     private var isVRActive = false
     private var isVideoStarted = false
+    private var waitingForStepsToResume = false  // True when waiting for steps to resume after restart
     private var startTime = 0L
     private var totalSteps = 0
     private var sessionSteps = 0
+    private var stepsSinceStart = 0  // Steps counted before video starts
 
     private val rotationMatrix = FloatArray(9)
     private val remappedRotationMatrix = FloatArray(9)
@@ -526,12 +527,20 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             totalSteps = 0
         }
 
-        // Video will start immediately (video starts on app launch)
-        isVideoStarted = true
-        vrRenderer.startVideo()
+        // Video start behavior depends on stepsBeforeVideoStart setting
+        if (AppConfig.stepsBeforeVideoStart == 0) {
+            // Start immediately if no step delay is configured
+            isVideoStarted = true
+            waitingForStepsToResume = false
+            vrRenderer.startVideo()
+        } else {
+            // Wait for configured number of steps before starting
+            stepsSinceStart = 0
+            isVideoStarted = false
+            waitingForStepsToResume = false  // Initial start, not a restart
+        }
 
         startUIUpdateLoop()
-        calibrateOrientation()  // Auto-calibrate on start (v1.3 behavior)
     }
 
     /**
@@ -596,11 +605,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         )
     }
 
-    private fun calibrateOrientation() {
-        vrRenderer.calibrateOrientation()
-        Toast.makeText(this, "View recalibrated", Toast.LENGTH_SHORT).show()
-    }
-
     /**
      * Handle volume button presses for VR headset controls
      *
@@ -608,7 +612,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
      * Volume buttons provide a way to control the app without removing the headset.
      *
      * Controls:
-     * - Double Volume Up: Recalibrate head orientation (set current view as "forward")
      * - Double Volume Down: Restart current session
      *
      * Implementation:
@@ -619,19 +622,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
      */
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         when (keyCode) {
-            KeyEvent.KEYCODE_VOLUME_UP -> {
-                val currentTime = System.currentTimeMillis()
-                val timeSinceLastPress = currentTime - lastVolumeUpPressTime
-
-                if (timeSinceLastPress < DOUBLE_PRESS_INTERVAL) {
-                    // Double press detected - Recalibrate orientation
-                    calibrateOrientation()
-                    lastVolumeUpPressTime = 0L
-                    return true  // Consume event, prevent volume change
-                } else {
-                    lastVolumeUpPressTime = currentTime
-                }
-            }
             KeyEvent.KEYCODE_VOLUME_DOWN -> {
                 val currentTime = System.currentTimeMillis()
                 val timeSinceLastPress = currentTime - lastVolumeDownPressTime
@@ -657,15 +647,27 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private fun restartSession() {
         // Reset stats
         sessionSteps = 0
+        stepsSinceStart = 0
         startTime = System.currentTimeMillis()
-        isVideoStarted = false
         stepController.reset()
 
         // Hide finish overlay
         finishOverlay.visibility = View.GONE
 
-        // Restart video
-        vrRenderer.restartVideo()
+        // Video start behavior depends on stepsBeforeVideoStart setting
+        if (AppConfig.stepsBeforeVideoStart == 0) {
+            // Start immediately if no step delay is configured
+            isVideoStarted = true
+            waitingForStepsToResume = false
+            vrRenderer.restartVideo()
+        } else {
+            // Wait for configured number of steps before starting video
+            // Restart video and pause it, then resume when steps are reached
+            isVideoStarted = false
+            waitingForStepsToResume = true
+            vrRenderer.restartVideo()
+            vrRenderer.pause()
+        }
 
         Toast.makeText(this, "Session restarted", Toast.LENGTH_SHORT).show()
     }
@@ -807,10 +809,29 @@ Kalorien: ${calories}kcal"""
                         totalSteps = currentTotal
                         stepController.addStep()
 
-                        // Start video on first step
+                        // Start video after configured number of steps
                         if (!isVideoStarted) {
-                            isVideoStarted = true
-                            vrRenderer.startVideo()
+                            stepsSinceStart += newSteps
+                            if (stepsSinceStart >= AppConfig.stepsBeforeVideoStart) {
+                                isVideoStarted = true
+
+                                // Use resume() if we're waiting after a restart, otherwise use startVideo()
+                                if (waitingForStepsToResume) {
+                                    vrRenderer.resume()
+                                    waitingForStepsToResume = false
+                                } else {
+                                    vrRenderer.startVideo()
+                                }
+
+                                // Show toast to indicate video has started
+                                if (AppConfig.stepsBeforeVideoStart > 0) {
+                                    Toast.makeText(
+                                        this,
+                                        "Video gestartet nach $stepsSinceStart Schritten",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            }
                         }
                     }
                 }
@@ -851,8 +872,10 @@ Kalorien: ${calories}kcal"""
 
                 // Reset session stats for new video
                 sessionSteps = 0
+                stepsSinceStart = 0
                 startTime = System.currentTimeMillis()
                 isVideoStarted = false
+                waitingForStepsToResume = false
                 stepController.reset()
                 finishOverlay.visibility = View.GONE
             } else {
@@ -869,9 +892,11 @@ Kalorien: ${calories}kcal"""
                 }
                 // Always resume video when returning from settings
                 vrRenderer.resume()
+                waitingForStepsToResume = false  // Clear restart flag since we're resuming normally
             }
-            // Update volume if player is running
+            // Update volume and FOV if player is running
             vrRenderer.updateVolume()
+            vrRenderer.updateProjectionMatrix()
         }
 
         // Re-register sensor listeners if VR is active
