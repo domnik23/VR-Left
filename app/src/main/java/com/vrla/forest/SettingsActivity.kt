@@ -628,7 +628,7 @@ class SettingsActivity : AppCompatActivity() {
                 videoPrefs.saveVideoUri(videoItem.uri)
                 videoListContainer.visibility = View.GONE
                 updateCurrentVideoDisplay()
-                Toast.makeText(this, "Video ausgewählt: ${videoItem.name}", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Video ausgewählt: ${videoItem.fileName}", Toast.LENGTH_SHORT).show()
             }
             videoRecyclerView.adapter = adapter
 
