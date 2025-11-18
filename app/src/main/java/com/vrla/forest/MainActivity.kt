@@ -517,7 +517,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         }
 
         isVRActive = true
-        startTime = System.currentTimeMillis()
         sessionSteps = 0
 
         // Register sensor listeners
@@ -535,12 +534,15 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             // Start immediately if no step delay is configured
             isVideoStarted = true
             waitingForStepsToResume = false
+            startTime = System.currentTimeMillis()  // Start timer when video starts
             vrRenderer.startVideo()
         } else {
             // Wait for configured number of steps before starting
+            // Timer will start when video actually starts (in onSensorChanged)
             stepsSinceStart = 0
             isVideoStarted = false
             waitingForStepsToResume = false  // Initial start, not a restart
+            startTime = 0  // Timer not started yet
         }
 
         startUIUpdateLoop()
@@ -651,7 +653,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         // Reset stats
         sessionSteps = 0
         stepsSinceStart = 0
-        startTime = System.currentTimeMillis()
         stepController.reset()
 
         // Hide finish overlay
@@ -662,12 +663,15 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             // Start immediately if no step delay is configured
             isVideoStarted = true
             waitingForStepsToResume = false
+            startTime = System.currentTimeMillis()  // Start timer when video starts
             vrRenderer.restartVideo()
         } else {
             // Wait for configured number of steps before starting video
             // Restart video and pause it, then resume when steps are reached
+            // Timer will start when video actually starts (in onSensorChanged)
             isVideoStarted = false
             waitingForStepsToResume = true
+            startTime = 0  // Timer not started yet
             vrRenderer.restartVideo()
             vrRenderer.pause()
         }
@@ -676,7 +680,11 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     }
 
     private fun showFinishOverlay() {
-        val elapsedSeconds = (System.currentTimeMillis() - startTime) / 1000
+        val elapsedSeconds = if (startTime > 0) {
+            (System.currentTimeMillis() - startTime) / 1000
+        } else {
+            0  // Timer not started yet
+        }
         val distance = stepController.getEstimatedDistance(sessionSteps)
         val calories = stepController.getEstimatedCalories(sessionSteps)
 
@@ -700,7 +708,11 @@ Kalorien: ${calories}kcal"""
 
     private fun updateUI() {
         val currentSpeed = stepController.getCurrentSpeed()
-        val elapsedSeconds = (System.currentTimeMillis() - startTime) / 1000
+        val elapsedSeconds = if (startTime > 0) {
+            (System.currentTimeMillis() - startTime) / 1000
+        } else {
+            0  // Timer not started yet
+        }
         val distance = stepController.getEstimatedDistance(sessionSteps)
         val calories = stepController.getEstimatedCalories(sessionSteps)
 
@@ -818,6 +830,9 @@ Kalorien: ${calories}kcal"""
                             if (stepsSinceStart >= AppConfig.stepsBeforeVideoStart) {
                                 isVideoStarted = true
 
+                                // Start timer when video starts
+                                startTime = System.currentTimeMillis()
+
                                 // Use resume() if we're waiting after a restart, otherwise use startVideo()
                                 if (waitingForStepsToResume) {
                                     vrRenderer.resume()
@@ -895,11 +910,23 @@ Kalorien: ${calories}kcal"""
                 // Reset session stats for new video
                 sessionSteps = 0
                 stepsSinceStart = 0
-                startTime = System.currentTimeMillis()
-                isVideoStarted = false
-                waitingForStepsToResume = false
                 stepController.reset()
                 finishOverlay.visibility = View.GONE
+
+                // Video start behavior depends on stepsBeforeVideoStart setting
+                if (AppConfig.stepsBeforeVideoStart == 0) {
+                    // Video starts immediately
+                    isVideoStarted = true
+                    waitingForStepsToResume = false
+                    startTime = System.currentTimeMillis()  // Start timer when video starts
+                } else {
+                    // Wait for steps before starting video
+                    // Timer will start when video actually starts (in onSensorChanged)
+                    isVideoStarted = false
+                    waitingForStepsToResume = false
+                    startTime = 0  // Timer not started yet
+                    vrRenderer.pause()  // Pause until steps are reached
+                }
             } else {
                 // VR not started yet - initialize with new video
                 initializeVRWithVideo()
