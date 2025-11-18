@@ -871,6 +871,25 @@ Kalorien: ${calories}kcal"""
             if (isVRActive) {
                 // VR already running - load new video without full restart
                 vrRenderer.setVideoUri(savedUri!!)
+
+                // Clear cache and reload timecode parameters for new video
+                val videoFileName = getVideoFileName(savedUri)
+                if (videoFileName != null) {
+                    val folderTreeUri = videoPrefs.getVideoFolderUri()
+
+                    // Clear cache to ensure fresh JSON data is loaded
+                    TimecodeParameterLoader.clearCache()
+
+                    // Reload timecode parameters for new video
+                    timecodeLoader = TimecodeParameterLoader(this)
+                    if (timecodeLoader!!.loadParametersForVideo(videoFileName, savedUri, folderTreeUri)) {
+                        vrRenderer.setTimecodeLoader(timecodeLoader)
+                    } else {
+                        timecodeLoader = null
+                        vrRenderer.setTimecodeLoader(null)
+                    }
+                }
+
                 vrRenderer.loadNewVideo()
 
                 // Reset session stats for new video
