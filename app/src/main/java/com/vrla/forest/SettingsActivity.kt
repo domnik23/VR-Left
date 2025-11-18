@@ -91,7 +91,7 @@ class SettingsActivity : AppCompatActivity() {
                 )
                 saveVideoUri(uri.toString())
                 updateCurrentVideoDisplay()
-                Toast.makeText(this, "Video ausgewählt", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Video selected", Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -175,9 +175,9 @@ class SettingsActivity : AppCompatActivity() {
         if (uriString != null) {
             val uri = Uri.parse(uriString)
             val fileName = getFileNameFromUri(uri)
-            currentVideoText.text = "Aktuell: $fileName"
+            currentVideoText.text = "Current: $fileName"
         } else {
-            currentVideoText.text = "Aktuell: Kein Video ausgewählt"
+            currentVideoText.text = "Current: No video selected"
         }
     }
 
@@ -193,9 +193,9 @@ class SettingsActivity : AppCompatActivity() {
                 }
             }
             // Fallback: use last path segment
-            uri.lastPathSegment ?: "Unbekannt"
+            uri.lastPathSegment ?: "Unknown"
         } catch (e: Exception) {
-            uri.lastPathSegment ?: "Unbekannt"
+            uri.lastPathSegment ?: "Unknown"
         }
     }
 
@@ -298,11 +298,11 @@ class SettingsActivity : AppCompatActivity() {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 val smoothing = progress * 0.01f // 0.0 to 1.0
                 smoothingValueText.text = when {
-                    smoothing < 0.2f -> "Sehr sanft"
-                    smoothing < 0.4f -> "Sanft"
+                    smoothing < 0.2f -> "Very Smooth"
+                    smoothing < 0.4f -> "Smooth"
                     smoothing < 0.6f -> "Normal"
-                    smoothing < 0.8f -> "Direkt"
-                    else -> "Sofort"
+                    smoothing < 0.8f -> "Direct"
+                    else -> "Instant"
                 }
             }
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
@@ -314,9 +314,9 @@ class SettingsActivity : AppCompatActivity() {
                 val curve = 1.0f + progress * 0.01f // 1.0 to 3.0
                 accelerationCurveValueText.text = when {
                     curve < 1.2f -> "Linear"
-                    curve < 1.7f -> "Moderat"
-                    curve < 2.3f -> "Stark"
-                    else -> "Sehr stark"
+                    curve < 1.7f -> "Moderate"
+                    curve < 2.3f -> "Strong"
+                    else -> "Very Strong"
                 }
             }
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
@@ -326,9 +326,11 @@ class SettingsActivity : AppCompatActivity() {
         stepsBeforeStartSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 stepsBeforeStartValueText.text = if (progress == 0) {
-                    "Sofort"
+                    "Instant"
+                } else if (progress == 1) {
+                    "1 step"
                 } else {
-                    "$progress Schritte"
+                    "$progress steps"
                 }
             }
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
@@ -451,7 +453,7 @@ class SettingsActivity : AppCompatActivity() {
         AppConfig.accelerationCurve = accelerationCurve
         AppConfig.stepsBeforeVideoStart = stepsBeforeStart
 
-        Toast.makeText(this, "Einstellungen gespeichert", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Settings saved", Toast.LENGTH_SHORT).show()
     }
 
     private fun resetToDefaults() {
@@ -469,7 +471,7 @@ class SettingsActivity : AppCompatActivity() {
         accelerationCurveSeekBar.progress = 0 // 1.0 (Linear)
         stepsBeforeStartSeekBar.progress = 3 // 3 steps (short warm-up)
 
-        Toast.makeText(this, "Auf Standardwerte zurückgesetzt", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Reset to default values", Toast.LENGTH_SHORT).show()
     }
 
     private fun openVideoPicker() {
@@ -502,10 +504,10 @@ class SettingsActivity : AppCompatActivity() {
         if (folderUriString != null) {
             val uri = Uri.parse(folderUriString)
             // Extract folder name from tree URI
-            val folderName = uri.lastPathSegment?.substringAfter(':') ?: "Ordner"
-            currentFolderText.text = "Ordner: $folderName"
+            val folderName = uri.lastPathSegment?.substringAfter(':') ?: "Folder"
+            currentFolderText.text = "Folder: $folderName"
         } else {
-            currentFolderText.text = "Kein Ordner ausgewählt"
+            currentFolderText.text = "No folder selected"
         }
     }
 
@@ -571,7 +573,7 @@ class SettingsActivity : AppCompatActivity() {
         if (videos.isEmpty()) {
             Toast.makeText(
                 this,
-                "Keine Videos im Ordner gefunden",
+                "No videos found in folder",
                 Toast.LENGTH_LONG
             ).show()
         } else {
@@ -634,7 +636,7 @@ class SettingsActivity : AppCompatActivity() {
                 videoPrefs.saveVideoUri(videoItem.uri)
                 videoListContainer.visibility = View.GONE
                 updateCurrentVideoDisplay()
-                Toast.makeText(this, "Video ausgewählt: ${videoItem.fileName}", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Video selected: ${videoItem.fileName}", Toast.LENGTH_SHORT).show()
             }
             videoRecyclerView.adapter = adapter
 
