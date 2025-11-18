@@ -63,6 +63,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private lateinit var videoRecyclerView: RecyclerView
     private lateinit var selectOtherVideoButton: Button
     private lateinit var cancelVideoListButton: Button
+    private lateinit var logoOverlay: android.widget.ImageView
 
     // Timecode parameter loading
     private var timecodeLoader: TimecodeParameterLoader? = null
@@ -229,6 +230,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         videoRecyclerView = findViewById(R.id.videoRecyclerView)
         selectOtherVideoButton = findViewById(R.id.selectOtherVideoButton)
         cancelVideoListButton = findViewById(R.id.cancelVideoListButton)
+        logoOverlay = findViewById(R.id.logoOverlay)
     }
 
     private fun setupRecyclerView() {
@@ -293,6 +295,13 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         vrRenderer.onVideoError = { errorMessage ->
             runOnUiThread {
                 showVideoErrorDialog(errorMessage)
+            }
+        }
+
+        vrRenderer.onVideoStarted = {
+            runOnUiThread {
+                // Hide logo when video starts playing
+                logoOverlay.visibility = View.GONE
             }
         }
     }
@@ -467,6 +476,9 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
      * Starts VR experience after a short delay to ensure OpenGL is ready
      */
     private fun initializeVRWithVideo() {
+        // Show logo while video is loading
+        logoOverlay.visibility = View.VISIBLE
+
         // Start VR after short delay (so OpenGL has time)
         glSurfaceView.postDelayed({
             startVRExperience()
