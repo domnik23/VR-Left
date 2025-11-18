@@ -15,7 +15,7 @@
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Videos aus deinem Ordner"
+        android:text="Videos from your folder"
         android:textColor="#FFFFFF"
         android:textSize="20sp"
         android:textStyle="bold"
@@ -41,7 +41,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Andere Datei wählen"
+            android:text="Choose Other File"
             android:layout_marginEnd="8dp" />
 
         <Button
@@ -49,7 +49,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Abbrechen"
+            android:text="Cancel"
             android:layout_marginStart="8dp" />
 
     </LinearLayout>

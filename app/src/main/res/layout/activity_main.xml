@@ -25,7 +25,7 @@
             android:id="@+id/infoBoxTitle"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Anleitung"
+            android:text="Instructions"
             android:textColor="#FFFFFF"
             android:textSize="16sp"
             android:textStyle="bold"
@@ -36,7 +36,7 @@
             android:id="@+id/infoBoxText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="1. Öffne Einstellungen (⋮)\n2. Wähle 'Video-Ordner wählen'\n3. Wähle Ordner mit Videos\n4. Wähle Video aus Liste"
+            android:text="1. Open Settings (⋮)\n2. Select 'Select Video Folder'\n3. Choose folder with videos\n4. Select video from list"
             android:textColor="#FFFFFF"
             android:textSize="12sp"
             android:gravity="start"
@@ -159,7 +159,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Ziel erreicht!"
+            android:text="Goal Reached!"
             android:textColor="#FFFFFF"
             android:textSize="24sp"
             android:textStyle="bold"
@@ -169,7 +169,7 @@
             android:id="@+id/finishText"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Zeit: 00:00\nSchritte: 0\nDistanz: 0.0km\nKalorien: 0kcal"
+            android:text="Time: 00:00\nSteps: 0\nDistance: 0.0km\nCalories: 0kcal"
             android:textColor="#FFFFFF"
             android:textSize="18sp"
             android:gravity="start"
@@ -184,7 +184,7 @@
                 android:id="@+id/finishRestartButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Neustarten"
+                android:text="Restart"
                 android:layout_marginEnd="16dp"
                 android:minWidth="120dp" />
 
@@ -192,7 +192,7 @@
                 android:id="@+id/finishExitButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Beenden"
+                android:text="Exit"
                 android:minWidth="120dp" />
 
         </LinearLayout>
