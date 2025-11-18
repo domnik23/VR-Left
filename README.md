@@ -8,7 +8,10 @@ Android VR app for immersive 360° video playback with step-based speed control.
 - 🎮 **Full 6DOF Head Tracking** - Gyroscope-based rotation tracking (pitch, yaw, roll)
 - 👟 **Step Counter Integration** - Real-time playback speed based on walking/jogging pace
 - 📊 **Live Stats** - Steps, distance, calories, time, current speed
-- ⚙️ **Customizable Settings** - IPD, video volume, step speed thresholds
+- 📁 **Video Folder Management** - Select entire folders, JSON parameter indicators
+- ⚙️ **JSON-Based Parameters** - Per-video timecode configuration with caching
+- 🎬 **Step Delay Start** - Configurable step threshold before video begins
+- ⚡ **Customizable Settings** - IPD, video volume, speed thresholds, rotation
 - 🔄 **Orientation Calibration** - Auto-calibration on start + manual recalibration
 - 📱 **In-Headset Controls** - Volume button controls (no need to remove headset)
 - 🎯 **Optimized Performance** - Runs smoothly on mid-range devices (Samsung S8+)
@@ -70,11 +73,13 @@ adb install app/build/outputs/apk/debug/app-debug.apk
 ### Core Components
 
 ```
-MainActivity.kt          - Activity lifecycle, sensor management, UI updates
-VRRenderer.kt           - OpenGL ES rendering, head tracking, video playback
-StepController.kt       - Step counting logic, speed calculation
-SettingsActivity.kt     - User settings management
-AppConfig.kt            - Global configuration singleton
+MainActivity.kt              - Activity lifecycle, sensor management, UI updates
+VRRenderer.kt               - OpenGL ES rendering, head tracking, video playback
+StepController.kt           - Step counting logic, speed calculation
+SettingsActivity.kt         - User settings management (compact 2-column layout)
+TimecodeParameterLoader.kt  - JSON parameter loader with caching
+VideoPreferences.kt         - Video folder and file preferences
+AppConfig.kt                - Global configuration singleton
 ```
 
 ### Head Tracking System
@@ -172,7 +177,27 @@ app/src/main/
 
 ### Key Code Sections
 
-#### 1. Head Tracking (`VRRenderer.kt`)
+#### 1. JSON Parameter Loading (`TimecodeParameterLoader.kt`)
+```kotlin
+// Static cache for parsed JSON configurations
+companion object {
+    private val configCache = mutableMapOf<String, TimecodeConfig>()
+
+    fun clearCache() {
+        synchronized(configCache) {
+            configCache.clear()
+        }
+    }
+}
+
+// Loading process:
+// 1. Check cache first
+// 2. Look for .json file with same name as video
+// 3. Parse JSON and cache result
+// 4. Clear cache when video changes to ensure fresh data
+```
+
+#### 2. Head Tracking (`VRRenderer.kt`)
 ```kotlin
 // Lines 419-476: updateHeadRotation()
 // - Converts 3x3 sensor matrix to 4x4 OpenGL matrix
@@ -184,7 +209,7 @@ app/src/main/
 // - Uses transpose (inverse) of uncalibrated rotation
 ```
 
-#### 2. Coordinate Remapping (`MainActivity.kt`)
+#### 3. Coordinate Remapping (`MainActivity.kt`)
 ```kotlin
 // Lines 576-581: Landscape coordinate system remapping
 SensorManager.remapCoordinateSystem(
@@ -195,7 +220,7 @@ SensorManager.remapCoordinateSystem(
 )
 ```
 
-#### 3. Stereo Rendering (`VRRenderer.kt`)
+#### 4. Stereo Rendering (`VRRenderer.kt`)
 ```kotlin
 // Lines 152-179: setupViewMatrices()
 // - Creates separate view matrices for left/right eyes
@@ -207,7 +232,46 @@ SensorManager.remapCoordinateSystem(
 // - Right eye: viewport (width/2, 0, width/2, height)
 ```
 
+#### 5. Video Start Delay (`MainActivity.kt`)
+```kotlin
+// startVRExperience(): Initial video load
+if (AppConfig.stepsBeforeVideoStart == 0) {
+    isVideoStarted = true
+    startTime = System.currentTimeMillis()
+    vrRenderer.startVideo()
+} else {
+    stepsSinceStart = 0
+    isVideoStarted = false
+    startTime = 0  // Timer not started yet
+    vrRenderer.pause()
+}
+
+// onSensorChanged(): Start video when step threshold reached
+if (stepsSinceStart >= AppConfig.stepsBeforeVideoStart) {
+    isVideoStarted = true
+    startTime = System.currentTimeMillis()  // Start timer now
+    vrRenderer.resume()
+}
+```
+
 ### Important Notes for Maintainers
+
+#### JSON Parameter Cache Management
+**CRITICAL**: Always clear cache when video changes to ensure fresh data:
+```kotlin
+// CORRECT: Clear cache before loading new video parameters
+TimecodeParameterLoader.clearCache()
+timecodeLoader = TimecodeParameterLoader(this)
+timecodeLoader!!.loadParametersForVideo(videoFileName, ...)
+
+// WRONG: Reusing old cached data
+// Will show stale parameters from previous video
+```
+
+**Cache Locations:**
+- `startVRExperience()` - Initial load
+- `onResume()` - Video changed in settings
+- Both must clear cache to prevent stale data
 
 #### Why Rotation Matrices?
 **DO NOT** convert to Euler angles! The original implementation used Euler angles and suffered from gimbal lock at 90° pitch. Rotation matrices are:
@@ -233,6 +297,22 @@ Matrix.transposeM(calibrationMatrix, 0, uncalibratedRotation, 0)
 
 // WRONG (causes stacking, position shifts):
 Matrix.transposeM(calibrationMatrix, 0, headRotationMatrix, 0)
+```
+
+#### Video Start Timing
+**CRITICAL**: Timer must start when video actually plays, not when initialized:
+```kotlin
+// CORRECT: Start timer when video starts
+if (AppConfig.stepsBeforeVideoStart == 0) {
+    startTime = System.currentTimeMillis()
+    vrRenderer.startVideo()
+} else {
+    startTime = 0  // Not started yet
+    // Timer starts in onSensorChanged when steps reached
+}
+
+// WRONG: Starting timer during initialization
+// Timer would run during step delay period
 ```
 
 ## Known Issues & Solutions
@@ -276,14 +356,49 @@ Matrix.transposeM(calibrationMatrix, 0, headRotationMatrix, 0)
 
 ## Configuration
 
-### Edit AppConfig.kt for defaults:
+### JSON Parameter Files (Per-Video Settings)
+
+Place JSON files alongside videos to configure timecode-based parameters:
+
+**File Naming:** `videoname.json` (same name as video file)
+
+**Example JSON Structure:**
+```json
+{
+  "timecodes": [
+    {
+      "time": 0,
+      "parameters": {
+        "minSpeed": 0.3,
+        "maxSpeed": 1.5
+      }
+    },
+    {
+      "time": 120,
+      "parameters": {
+        "minSpeed": 0.5,
+        "maxSpeed": 2.0
+      }
+    }
+  ]
+}
+```
+
+**Features:**
+- Automatic detection when browsing video folders
+- Visual indicators (✓ green checkmark) in video list
+- Cached for performance (auto-refreshes on video change)
+- Optional - videos work without JSON files
+
+### Global Defaults (AppConfig.kt)
 ```kotlin
 var ipd = 0.063f              // Inter-pupillary distance (meters)
 var stereoMode = true         // Side-by-side stereo video
 var videoVolume = 1.0f        // Volume (0.0 - 1.0)
+var stepsBeforeVideoStart = 3 // Step delay before video starts
 ```
 
-### Edit StepController.kt for step speeds:
+### Speed Settings (StepController.kt)
 ```kotlin
 private val minSpeed = 0.3f            // Idle speed
 private val maxSpeed = 2.0f            // Max jogging speed
@@ -303,6 +418,13 @@ All matrices pre-allocated as FloatArray(16), no per-frame allocations.
 
 ## Version History
 
+- **v1.6** - JSON parameter system, video folder management, compact UI, step delay start
+  - Added TimecodeParameterLoader with caching
+  - Video folder selection with parameter indicators
+  - Compact 2-column settings layout
+  - Configurable step delay before video start
+  - Cache clearing on video changes
+  - Timer starts only when video actually plays
 - **v1.5** - Lock screen orientation to landscape (prevent 180° rotation bug)
 - **v1.4** - Fix calibration stacking bug (use uncalibratedRotation)
 - **v1.3** - Fix video orientation (-90° pitch), immediate video start
