@@ -2,8 +2,10 @@ package com.vrla.forest
 
 import android.content.Context
 import android.content.Intent
+import android.database.Cursor
 import android.net.Uri
 import android.os.Bundle
+import android.provider.DocumentsContract
 import android.view.View
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
@@ -15,6 +17,8 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.SwitchCompat
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 
 class SettingsActivity : AppCompatActivity() {
 
@@ -52,6 +56,12 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var resetButton: Button
     private lateinit var saveButton: Button
 
+    // Video list
+    private lateinit var videoListContainer: View
+    private lateinit var videoRecyclerView: RecyclerView
+    private lateinit var selectOtherVideoButton: Button
+    private lateinit var cancelVideoListButton: Button
+
     private val folderPickerLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -61,9 +71,11 @@ class SettingsActivity : AppCompatActivity() {
                     treeUri,
                     Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
                 )
-                saveVideoFolderUri(treeUri.toString())
+                videoPrefs.saveVideoFolderUri(treeUri)
                 updateCurrentFolderDisplay()
-                Toast.makeText(this, "Ordner ausgewählt - Videos werden beim Start geladen", Toast.LENGTH_LONG).show()
+
+                // Show video list from the selected folder
+                showVideoListFromFolder(treeUri)
             }
         }
     }
@@ -135,6 +147,15 @@ class SettingsActivity : AppCompatActivity() {
         resetButton = findViewById(R.id.resetButton)
         saveButton = findViewById(R.id.saveButton)
 
+        // Video list
+        videoListContainer = findViewById(R.id.videoListContainer)
+        videoRecyclerView = findViewById(R.id.videoRecyclerView)
+        selectOtherVideoButton = findViewById(R.id.selectOtherVideoButton)
+        cancelVideoListButton = findViewById(R.id.cancelVideoListButton)
+
+        // Setup RecyclerView
+        videoRecyclerView.layoutManager = LinearLayoutManager(this)
+
         // Set app version
         try {
             val packageInfo = packageManager.getPackageInfo(packageName, 0)
@@ -184,7 +205,22 @@ class SettingsActivity : AppCompatActivity() {
         }
 
         selectVideoButton.setOnClickListener {
+            // Check if folder is selected, if yes show video list
+            val folderTreeUri = videoPrefs.getVideoFolderUri()
+            if (folderTreeUri != null) {
+                showVideoListFromFolder(folderTreeUri)
+            } else {
+                openVideoPicker()
+            }
+        }
+
+        selectOtherVideoButton.setOnClickListener {
+            videoListContainer.visibility = View.GONE
             openVideoPicker()
+        }
+
+        cancelVideoListButton.setOnClickListener {
+            videoListContainer.visibility = View.GONE
         }
 
         volumeSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
@@ -459,13 +495,6 @@ class SettingsActivity : AppCompatActivity() {
         folderPickerLauncher.launch(intent)
     }
 
-    private fun saveVideoFolderUri(uriString: String) {
-        getSharedPreferences("VRLAPrefs", Context.MODE_PRIVATE)
-            .edit()
-            .putString("video_folder_uri", uriString)
-            .apply()
-    }
-
     private fun updateCurrentFolderDisplay() {
         val prefs = getSharedPreferences("VRLAPrefs", Context.MODE_PRIVATE)
         val folderUriString = prefs.getString("video_folder_uri", null)
@@ -477,6 +506,140 @@ class SettingsActivity : AppCompatActivity() {
             currentFolderText.text = "Ordner: $folderName"
         } else {
             currentFolderText.text = "Kein Ordner ausgewählt"
+        }
+    }
+
+    /**
+     * Show video list from the selected folder
+     *
+     * @param folderTreeUri Tree URI of the selected folder
+     */
+    private fun showVideoListFromFolder(folderTreeUri: Uri) {
+        val videos = mutableListOf<VideoItem>()
+        var cursor: Cursor? = null
+
+        try {
+            // Build URI for querying children of the tree
+            val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(
+                folderTreeUri,
+                DocumentsContract.getTreeDocumentId(folderTreeUri)
+            )
+
+            // Query all children to find video files
+            cursor = contentResolver.query(
+                childrenUri,
+                arrayOf(
+                    DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+                    DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+                    DocumentsContract.Document.COLUMN_MIME_TYPE
+                ),
+                null,
+                null,
+                DocumentsContract.Document.COLUMN_DISPLAY_NAME + " ASC"
+            )
+
+            if (cursor != null) {
+                while (cursor.moveToNext()) {
+                    val displayName = cursor.getString(
+                        cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
+                    )
+                    val mimeType = cursor.getString(
+                        cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_MIME_TYPE)
+                    )
+
+                    // Check if it's a video file
+                    if (mimeType?.startsWith("video/") == true || displayName.endsWith(".mp4", true)) {
+                        val documentId = cursor.getString(
+                            cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DOCUMENT_ID)
+                        )
+                        val videoUri = DocumentsContract.buildDocumentUriUsingTree(folderTreeUri, documentId)
+
+                        // Check if parameter file exists
+                        val baseName = displayName.substringBeforeLast(".")
+                        val hasParameters = checkParameterFileExists(folderTreeUri, "$baseName.json")
+
+                        videos.add(VideoItem(videoUri, displayName, hasParameters))
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("SettingsActivity", "Error loading videos from folder: ${e.message}", e)
+        } finally {
+            cursor?.close()
+        }
+
+        if (videos.isEmpty()) {
+            Toast.makeText(
+                this,
+                "Keine Videos im Ordner gefunden",
+                Toast.LENGTH_LONG
+            ).show()
+        } else {
+            // Show video list
+            showVideoList(videos)
+        }
+    }
+
+    /**
+     * Check if a parameter file exists in the folder
+     *
+     * @param folderTreeUri Tree URI of the folder
+     * @param paramFileName Name of the parameter file
+     * @return true if file exists, false otherwise
+     */
+    private fun checkParameterFileExists(folderTreeUri: Uri, paramFileName: String): Boolean {
+        var cursor: Cursor? = null
+        return try {
+            val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(
+                folderTreeUri,
+                DocumentsContract.getTreeDocumentId(folderTreeUri)
+            )
+
+            cursor = contentResolver.query(
+                childrenUri,
+                arrayOf(DocumentsContract.Document.COLUMN_DISPLAY_NAME),
+                null,
+                null,
+                null
+            )
+
+            if (cursor != null) {
+                while (cursor.moveToNext()) {
+                    val displayName = cursor.getString(
+                        cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
+                    )
+                    if (displayName == paramFileName) {
+                        return true
+                    }
+                }
+            }
+            false
+        } catch (e: Exception) {
+            false
+        } finally {
+            cursor?.close()
+        }
+    }
+
+    /**
+     * Display the video list UI
+     *
+     * @param videos List of videos to display
+     */
+    private fun showVideoList(videos: List<VideoItem>) {
+        runOnUiThread {
+            // Set up adapter
+            val adapter = VideoListAdapter(videos) { videoItem ->
+                // Video selected
+                videoPrefs.saveVideoUri(videoItem.uri)
+                videoListContainer.visibility = View.GONE
+                updateCurrentVideoDisplay()
+                Toast.makeText(this, "Video ausgewählt: ${videoItem.fileName}", Toast.LENGTH_SHORT).show()
+            }
+            videoRecyclerView.adapter = adapter
+
+            // Show video list overlay
+            videoListContainer.visibility = View.VISIBLE
         }
     }
 }
