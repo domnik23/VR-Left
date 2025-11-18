@@ -891,6 +891,9 @@ Kalorien: ${calories}kcal"""
         // Reload settings when returning from SettingsActivity
         AppConfig.loadFromPreferences(this)
 
+        // Update renderer's cached AppConfig values for performance
+        vrRenderer.updateAppConfigCache()
+
         // Check if video was changed in Settings using flag (more reliable than URI comparison)
         val videoChanged = videoPrefs.checkAndClearVideoChangedFlag()
 

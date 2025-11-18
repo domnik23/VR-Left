@@ -76,6 +76,11 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
     private var videoEnded = false
     private var isReleased = false  // Track if renderer has been released
 
+    // Cached AppConfig values to avoid reading them every frame (performance optimization)
+    private var cachedStereoMode = false
+    private var cachedVideoRotation = -90f
+    private var cachedIpd = 0.064f
+
     var onVideoEnded: (() -> Unit)? = null
     var onVideoError: ((String) -> Unit)? = null
     var onVideoStarted: (() -> Unit)? = null
@@ -104,6 +109,15 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
         textureHandle = GLES30.glGetUniformLocation(program, "uTexture")
         texOffsetHandle = GLES30.glGetUniformLocation(program, "uTexOffsetU")
         texScaleHandle = GLES30.glGetUniformLocation(program, "uTexScaleX")
+
+        // Setup vertex attributes once (instead of every frame for better performance)
+        GLES30.glEnableVertexAttribArray(positionHandle)
+        GLES30.glVertexAttribPointer(positionHandle, 3, GLES30.GL_FLOAT, false, 0, sphereVertices)
+        GLES30.glEnableVertexAttribArray(texCoordHandle)
+        GLES30.glVertexAttribPointer(texCoordHandle, 2, GLES30.GL_FLOAT, false, 0, sphereTexCoords)
+
+        // Cache AppConfig values to avoid reading them every frame
+        updateAppConfigCache()
 
         // Release old SurfaceTexture to prevent memory leak
         surfaceTexture?.release()
@@ -157,7 +171,7 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
         setupViewMatrices()
 
         // Texture scaling: Mono mode uses full video (1.0x), Stereo mode uses half (0.5x for side-by-side)
-        val texScale = if (AppConfig.stereoMode) 0.5f else 1.0f
+        val texScale = if (cachedStereoMode) 0.5f else 1.0f
 
         // Left eye
         GLES30.glViewport(0, 0, screenWidth / 2, screenHeight)
@@ -166,7 +180,7 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
         // Right eye
         GLES30.glViewport(screenWidth / 2, 0, screenWidth / 2, screenHeight)
         // Mono mode: both eyes see the same (offset 0.0), Stereo mode: right eye sees right half (offset 0.5)
-        val rightEyeOffset = if (AppConfig.stereoMode) 0.5f else 0f
+        val rightEyeOffset = if (cachedStereoMode) 0.5f else 0f
         drawSphere(viewMatrixRight, rightEyeOffset, texScale)
     }
 
@@ -189,7 +203,7 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
     private fun setupViewMatrices() {
         // Model matrix: Rotate sphere to correct video orientation
         Matrix.setIdentityM(modelMatrix, 0)
-        Matrix.rotateM(modelMatrix, 0, AppConfig.videoRotation, 1f, 0f, 0f)
+        Matrix.rotateM(modelMatrix, 0, cachedVideoRotation, 1f, 0f, 0f)
 
         // View matrix approach for 360° video:
         // The sensor rotation describes how the phone is oriented.
@@ -203,8 +217,8 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
         }
 
         // Create view matrices for left and right eye with IPD offset
-        createEyeViewMatrix(viewMatrixLeft, tempMatrix, -AppConfig.ipd / 2f)
-        createEyeViewMatrix(viewMatrixRight, tempMatrix, AppConfig.ipd / 2f)
+        createEyeViewMatrix(viewMatrixLeft, tempMatrix, -cachedIpd / 2f)
+        createEyeViewMatrix(viewMatrixRight, tempMatrix, cachedIpd / 2f)
     }
 
     /**
@@ -234,19 +248,8 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
         GLES30.glUniform1f(texScaleHandle, texScaleX)
         GLES30.glUniformMatrix4fv(mvpMatrixHandle, 1, false, mvpMatrix, 0)
 
-        sphereVertices.position(0)
-        GLES30.glEnableVertexAttribArray(positionHandle)
-        GLES30.glVertexAttribPointer(positionHandle, 3, GLES30.GL_FLOAT, false, 0, sphereVertices)
-
-        sphereTexCoords.position(0)
-        GLES30.glEnableVertexAttribArray(texCoordHandle)
-        GLES30.glVertexAttribPointer(texCoordHandle, 2, GLES30.GL_FLOAT, false, 0, sphereTexCoords)
-
-        sphereIndices.position(0)
+        // Vertex attributes are already enabled in onSurfaceCreated - just draw
         GLES30.glDrawElements(GLES30.GL_TRIANGLES, sphereIndices.capacity(), GLES30.GL_UNSIGNED_INT, sphereIndices)
-
-        GLES30.glDisableVertexAttribArray(positionHandle)
-        GLES30.glDisableVertexAttribArray(texCoordHandle)
     }
 
     private fun createSphereGeometry() {
@@ -765,6 +768,17 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
                 }
             }
         }
+    }
+
+    /**
+     * Update cached AppConfig values to avoid reading them every frame
+     *
+     * Call this after changing settings in SettingsActivity
+     */
+    fun updateAppConfigCache() {
+        cachedStereoMode = AppConfig.stereoMode
+        cachedVideoRotation = AppConfig.videoRotation
+        cachedIpd = AppConfig.ipd
     }
 
     /**
