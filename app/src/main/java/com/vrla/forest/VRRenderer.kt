@@ -78,6 +78,7 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
 
     var onVideoEnded: (() -> Unit)? = null
     var onVideoError: ((String) -> Unit)? = null
+    var onVideoStarted: (() -> Unit)? = null
 
     // Timecode parameter loading
     private var timecodeLoader: TimecodeParameterLoader? = null
@@ -409,6 +410,9 @@ class VRRenderer(private val context: Context) : GLSurfaceView.Renderer, Surface
         }
 
         videoEnded = false
+
+        // Notify that video has started
+        onVideoStarted?.invoke()
     }
 
     private fun setupMediaListeners(player: MediaPlayer) {

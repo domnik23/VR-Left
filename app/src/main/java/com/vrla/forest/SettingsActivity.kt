@@ -2,8 +2,10 @@ package com.vrla.forest
 
 import android.content.Context
 import android.content.Intent
+import android.database.Cursor
 import android.net.Uri
 import android.os.Bundle
+import android.provider.DocumentsContract
 import android.view.View
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
@@ -15,6 +17,8 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.SwitchCompat
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 
 class SettingsActivity : AppCompatActivity() {
 
@@ -52,6 +56,12 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var resetButton: Button
     private lateinit var saveButton: Button
 
+    // Video list
+    private lateinit var videoListContainer: View
+    private lateinit var videoRecyclerView: RecyclerView
+    private lateinit var selectOtherVideoButton: Button
+    private lateinit var cancelVideoListButton: Button
+
     private val folderPickerLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -61,9 +71,11 @@ class SettingsActivity : AppCompatActivity() {
                     treeUri,
                     Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
                 )
-                saveVideoFolderUri(treeUri.toString())
+                videoPrefs.saveVideoFolderUri(treeUri)
                 updateCurrentFolderDisplay()
-                Toast.makeText(this, "Ordner ausgewählt - Videos werden beim Start geladen", Toast.LENGTH_LONG).show()
+
+                // Show video list from the selected folder
+                showVideoListFromFolder(treeUri)
             }
         }
     }
@@ -79,7 +91,7 @@ class SettingsActivity : AppCompatActivity() {
                 )
                 saveVideoUri(uri.toString())
                 updateCurrentVideoDisplay()
-                Toast.makeText(this, "Video ausgewählt", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Video selected", Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -135,6 +147,15 @@ class SettingsActivity : AppCompatActivity() {
         resetButton = findViewById(R.id.resetButton)
         saveButton = findViewById(R.id.saveButton)
 
+        // Video list
+        videoListContainer = findViewById(R.id.videoListContainer)
+        videoRecyclerView = findViewById(R.id.videoRecyclerView)
+        selectOtherVideoButton = findViewById(R.id.selectOtherVideoButton)
+        cancelVideoListButton = findViewById(R.id.cancelVideoListButton)
+
+        // Setup RecyclerView
+        videoRecyclerView.layoutManager = LinearLayoutManager(this)
+
         // Set app version
         try {
             val packageInfo = packageManager.getPackageInfo(packageName, 0)
@@ -154,9 +175,9 @@ class SettingsActivity : AppCompatActivity() {
         if (uriString != null) {
             val uri = Uri.parse(uriString)
             val fileName = getFileNameFromUri(uri)
-            currentVideoText.text = "Aktuell: $fileName"
+            currentVideoText.text = "Current: $fileName"
         } else {
-            currentVideoText.text = "Aktuell: Kein Video ausgewählt"
+            currentVideoText.text = "Current: No video selected"
         }
     }
 
@@ -172,9 +193,9 @@ class SettingsActivity : AppCompatActivity() {
                 }
             }
             // Fallback: use last path segment
-            uri.lastPathSegment ?: "Unbekannt"
+            uri.lastPathSegment ?: "Unknown"
         } catch (e: Exception) {
-            uri.lastPathSegment ?: "Unbekannt"
+            uri.lastPathSegment ?: "Unknown"
         }
     }
 
@@ -184,7 +205,22 @@ class SettingsActivity : AppCompatActivity() {
         }
 
         selectVideoButton.setOnClickListener {
+            // Check if folder is selected, if yes show video list
+            val folderTreeUri = videoPrefs.getVideoFolderUri()
+            if (folderTreeUri != null) {
+                showVideoListFromFolder(folderTreeUri)
+            } else {
+                openVideoPicker()
+            }
+        }
+
+        selectOtherVideoButton.setOnClickListener {
+            videoListContainer.visibility = View.GONE
             openVideoPicker()
+        }
+
+        cancelVideoListButton.setOnClickListener {
+            videoListContainer.visibility = View.GONE
         }
 
         volumeSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
@@ -262,11 +298,11 @@ class SettingsActivity : AppCompatActivity() {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 val smoothing = progress * 0.01f // 0.0 to 1.0
                 smoothingValueText.text = when {
-                    smoothing < 0.2f -> "Sehr sanft"
-                    smoothing < 0.4f -> "Sanft"
+                    smoothing < 0.2f -> "Very Smooth"
+                    smoothing < 0.4f -> "Smooth"
                     smoothing < 0.6f -> "Normal"
-                    smoothing < 0.8f -> "Direkt"
-                    else -> "Sofort"
+                    smoothing < 0.8f -> "Direct"
+                    else -> "Instant"
                 }
             }
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
@@ -278,9 +314,9 @@ class SettingsActivity : AppCompatActivity() {
                 val curve = 1.0f + progress * 0.01f // 1.0 to 3.0
                 accelerationCurveValueText.text = when {
                     curve < 1.2f -> "Linear"
-                    curve < 1.7f -> "Moderat"
-                    curve < 2.3f -> "Stark"
-                    else -> "Sehr stark"
+                    curve < 1.7f -> "Moderate"
+                    curve < 2.3f -> "Strong"
+                    else -> "Very Strong"
                 }
             }
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
@@ -290,9 +326,11 @@ class SettingsActivity : AppCompatActivity() {
         stepsBeforeStartSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 stepsBeforeStartValueText.text = if (progress == 0) {
-                    "Sofort"
+                    "Instant"
+                } else if (progress == 1) {
+                    "1 step"
                 } else {
-                    "$progress Schritte"
+                    "$progress steps"
                 }
             }
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
@@ -415,7 +453,7 @@ class SettingsActivity : AppCompatActivity() {
         AppConfig.accelerationCurve = accelerationCurve
         AppConfig.stepsBeforeVideoStart = stepsBeforeStart
 
-        Toast.makeText(this, "Einstellungen gespeichert", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Settings saved", Toast.LENGTH_SHORT).show()
     }
 
     private fun resetToDefaults() {
@@ -433,7 +471,7 @@ class SettingsActivity : AppCompatActivity() {
         accelerationCurveSeekBar.progress = 0 // 1.0 (Linear)
         stepsBeforeStartSeekBar.progress = 3 // 3 steps (short warm-up)
 
-        Toast.makeText(this, "Auf Standardwerte zurückgesetzt", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Reset to default values", Toast.LENGTH_SHORT).show()
     }
 
     private fun openVideoPicker() {
@@ -459,13 +497,6 @@ class SettingsActivity : AppCompatActivity() {
         folderPickerLauncher.launch(intent)
     }
 
-    private fun saveVideoFolderUri(uriString: String) {
-        getSharedPreferences("VRLAPrefs", Context.MODE_PRIVATE)
-            .edit()
-            .putString("video_folder_uri", uriString)
-            .apply()
-    }
-
     private fun updateCurrentFolderDisplay() {
         val prefs = getSharedPreferences("VRLAPrefs", Context.MODE_PRIVATE)
         val folderUriString = prefs.getString("video_folder_uri", null)
@@ -473,10 +504,144 @@ class SettingsActivity : AppCompatActivity() {
         if (folderUriString != null) {
             val uri = Uri.parse(folderUriString)
             // Extract folder name from tree URI
-            val folderName = uri.lastPathSegment?.substringAfter(':') ?: "Ordner"
-            currentFolderText.text = "Ordner: $folderName"
+            val folderName = uri.lastPathSegment?.substringAfter(':') ?: "Folder"
+            currentFolderText.text = "Folder: $folderName"
         } else {
-            currentFolderText.text = "Kein Ordner ausgewählt"
+            currentFolderText.text = "No folder selected"
+        }
+    }
+
+    /**
+     * Show video list from the selected folder
+     *
+     * @param folderTreeUri Tree URI of the selected folder
+     */
+    private fun showVideoListFromFolder(folderTreeUri: Uri) {
+        val videos = mutableListOf<VideoItem>()
+        var cursor: Cursor? = null
+
+        try {
+            // Build URI for querying children of the tree
+            val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(
+                folderTreeUri,
+                DocumentsContract.getTreeDocumentId(folderTreeUri)
+            )
+
+            // Query all children to find video files
+            cursor = contentResolver.query(
+                childrenUri,
+                arrayOf(
+                    DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+                    DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+                    DocumentsContract.Document.COLUMN_MIME_TYPE
+                ),
+                null,
+                null,
+                DocumentsContract.Document.COLUMN_DISPLAY_NAME + " ASC"
+            )
+
+            if (cursor != null) {
+                while (cursor.moveToNext()) {
+                    val displayName = cursor.getString(
+                        cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
+                    )
+                    val mimeType = cursor.getString(
+                        cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_MIME_TYPE)
+                    )
+
+                    // Check if it's a video file
+                    if (mimeType?.startsWith("video/") == true || displayName.endsWith(".mp4", true)) {
+                        val documentId = cursor.getString(
+                            cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DOCUMENT_ID)
+                        )
+                        val videoUri = DocumentsContract.buildDocumentUriUsingTree(folderTreeUri, documentId)
+
+                        // Check if parameter file exists
+                        val baseName = displayName.substringBeforeLast(".")
+                        val hasParameters = checkParameterFileExists(folderTreeUri, "$baseName.json")
+
+                        videos.add(VideoItem(videoUri, displayName, hasParameters))
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("SettingsActivity", "Error loading videos from folder: ${e.message}", e)
+        } finally {
+            cursor?.close()
+        }
+
+        if (videos.isEmpty()) {
+            Toast.makeText(
+                this,
+                "No videos found in folder",
+                Toast.LENGTH_LONG
+            ).show()
+        } else {
+            // Show video list
+            showVideoList(videos)
+        }
+    }
+
+    /**
+     * Check if a parameter file exists in the folder
+     *
+     * @param folderTreeUri Tree URI of the folder
+     * @param paramFileName Name of the parameter file
+     * @return true if file exists, false otherwise
+     */
+    private fun checkParameterFileExists(folderTreeUri: Uri, paramFileName: String): Boolean {
+        var cursor: Cursor? = null
+        return try {
+            val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(
+                folderTreeUri,
+                DocumentsContract.getTreeDocumentId(folderTreeUri)
+            )
+
+            cursor = contentResolver.query(
+                childrenUri,
+                arrayOf(DocumentsContract.Document.COLUMN_DISPLAY_NAME),
+                null,
+                null,
+                null
+            )
+
+            if (cursor != null) {
+                while (cursor.moveToNext()) {
+                    val displayName = cursor.getString(
+                        cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
+                    )
+                    if (displayName == paramFileName) {
+                        return true
+                    }
+                }
+            }
+            false
+        } catch (e: Exception) {
+            false
+        } finally {
+            cursor?.close()
+        }
+    }
+
+    /**
+     * Display the video list UI
+     *
+     * @param videos List of videos to display
+     */
+    private fun showVideoList(videos: List<VideoItem>) {
+        runOnUiThread {
+            // Set up adapter
+            val adapter = VideoListAdapter(videos) { videoItem ->
+                // Video selected
+                videoPrefs.saveVideoUri(videoItem.uri)
+                videoListContainer.visibility = View.GONE
+                updateCurrentVideoDisplay()
+                Toast.makeText(this, "Video selected: ${videoItem.fileName}", Toast.LENGTH_SHORT).show()
+            }
+            videoRecyclerView.adapter = adapter
+
+            // Show video list overlay
+            videoListContainer.visibility = View.VISIBLE
         }
     }
 }

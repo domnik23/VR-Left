@@ -4,7 +4,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="#C0000000"
+    android:background="#E8000000"
     android:gravity="center"
     android:paddingStart="16dp"
     android:paddingEnd="16dp"
@@ -15,7 +15,7 @@
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Videos aus deinem Ordner"
+        android:text="Videos from your folder"
         android:textColor="#FFFFFF"
         android:textSize="20sp"
         android:textStyle="bold"
@@ -26,7 +26,7 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:background="#30FFFFFF"
+        android:background="#50FFFFFF"
         android:padding="8dp" />
 
     <LinearLayout
@@ -41,7 +41,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Andere Datei wählen"
+            android:text="Choose Other File"
             android:layout_marginEnd="8dp" />
 
         <Button
@@ -49,7 +49,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Abbrechen"
+            android:text="Cancel"
             android:layout_marginStart="8dp" />
 
     </LinearLayout>
