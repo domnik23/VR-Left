@@ -141,109 +141,204 @@
             </LinearLayout>
         </LinearLayout>
 
-        <!-- Display Section -->
+        <!-- Display and Fitness Section (side by side) -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:background="@drawable/settings_card_background"
-            android:padding="12dp"
+            android:orientation="horizontal"
             android:layout_marginBottom="6dp">
 
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="👁️ Anzeige"
-                android:textColor="#03DAC6"
-                android:textSize="13sp"
-                android:textStyle="bold"
-                android:layout_marginBottom="8dp" />
-
+            <!-- Display Section -->
             <LinearLayout
-                android:layout_width="match_parent"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:layout_marginBottom="8dp">
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:background="@drawable/settings_card_background"
+                android:padding="12dp"
+                android:layout_marginEnd="3dp">
 
                 <TextView
-                    android:layout_width="0dp"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="Stereo Modus (3D)"
-                    android:textColor="#FFFFFF"
-                    android:textSize="12sp" />
+                    android:text="👁️ Anzeige"
+                    android:textColor="#03DAC6"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="8dp" />
 
-                <androidx.appcompat.widget.SwitchCompat
-                    android:id="@+id/stereoSwitch"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content" />
-            </LinearLayout>
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Augenabstand (IPD)"
-                android:textColor="#FFFFFF"
-                android:textSize="12sp"
-                android:layout_marginBottom="4dp" />
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:layout_marginBottom="8dp">
-
-                <SeekBar
-                    android:id="@+id/ipdSeekBar"
-                    android:layout_width="0dp"
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:max="30"
-                    android:progress="14" />
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginBottom="8dp">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Stereo (3D)"
+                        android:textColor="#FFFFFF"
+                        android:textSize="12sp" />
+
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/stereoSwitch"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content" />
+                </LinearLayout>
 
                 <TextView
-                    android:id="@+id/ipdValueText"
-                    android:layout_width="55dp"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="64mm"
+                    android:text="IPD"
                     android:textColor="#FFFFFF"
                     android:textSize="12sp"
-                    android:textAlignment="textEnd" />
-            </LinearLayout>
+                    android:layout_marginBottom="4dp" />
 
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Sichtfeld (FOV)"
-                android:textColor="#FFFFFF"
-                android:textSize="12sp"
-                android:layout_marginBottom="4dp" />
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical">
-
-                <SeekBar
-                    android:id="@+id/fovSeekBar"
-                    android:layout_width="0dp"
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:max="40"
-                    android:progress="15" />
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginBottom="8dp">
+
+                    <SeekBar
+                        android:id="@+id/ipdSeekBar"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:max="30"
+                        android:progress="14" />
+
+                    <TextView
+                        android:id="@+id/ipdValueText"
+                        android:layout_width="50dp"
+                        android:layout_height="wrap_content"
+                        android:text="64mm"
+                        android:textColor="#FFFFFF"
+                        android:textSize="11sp"
+                        android:textAlignment="textEnd" />
+                </LinearLayout>
 
                 <TextView
-                    android:id="@+id/fovValueText"
-                    android:layout_width="55dp"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="75°"
+                    android:text="FOV"
                     android:textColor="#FFFFFF"
                     android:textSize="12sp"
-                    android:textAlignment="textEnd" />
+                    android:layout_marginBottom="4dp" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <SeekBar
+                        android:id="@+id/fovSeekBar"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:max="40"
+                        android:progress="15" />
+
+                    <TextView
+                        android:id="@+id/fovValueText"
+                        android:layout_width="50dp"
+                        android:layout_height="wrap_content"
+                        android:text="75°"
+                        android:textColor="#FFFFFF"
+                        android:textSize="11sp"
+                        android:textAlignment="textEnd" />
+                </LinearLayout>
             </LinearLayout>
+
+            <!-- Fitness Section -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:background="@drawable/settings_card_background"
+                android:padding="12dp"
+                android:layout_marginStart="3dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="🏃 Fitness"
+                    android:textColor="#CF6679"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="8dp" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Schrittlänge"
+                    android:textColor="#FFFFFF"
+                    android:textSize="12sp"
+                    android:layout_marginBottom="4dp" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginBottom="8dp">
+
+                    <SeekBar
+                        android:id="@+id/strideLengthSeekBar"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:max="50"
+                        android:progress="25" />
+
+                    <TextView
+                        android:id="@+id/strideLengthValueText"
+                        android:layout_width="50dp"
+                        android:layout_height="wrap_content"
+                        android:text="0.75m"
+                        android:textColor="#FFFFFF"
+                        android:textSize="11sp"
+                        android:textAlignment="textEnd" />
+                </LinearLayout>
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Kalorien/km"
+                    android:textColor="#FFFFFF"
+                    android:textSize="12sp"
+                    android:layout_marginBottom="4dp" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <SeekBar
+                        android:id="@+id/caloriesSeekBar"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:max="100"
+                        android:progress="60" />
+
+                    <TextView
+                        android:id="@+id/caloriesValueText"
+                        android:layout_width="50dp"
+                        android:layout_height="wrap_content"
+                        android:text="60"
+                        android:textColor="#FFFFFF"
+                        android:textSize="11sp"
+                        android:textAlignment="textEnd" />
+                </LinearLayout>
+            </LinearLayout>
+
         </LinearLayout>
 
         <!-- Speed Section -->
@@ -463,90 +558,6 @@
             </LinearLayout>
         </LinearLayout>
 
-        <!-- Fitness Section -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:background="@drawable/settings_card_background"
-            android:padding="12dp"
-            android:layout_marginBottom="6dp">
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="🏃 Fitness Tracking"
-                android:textColor="#CF6679"
-                android:textSize="13sp"
-                android:textStyle="bold"
-                android:layout_marginBottom="8dp" />
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Schrittlänge"
-                android:textColor="#FFFFFF"
-                android:textSize="12sp"
-                android:layout_marginBottom="4dp" />
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:layout_marginBottom="8dp">
-
-                <SeekBar
-                    android:id="@+id/strideLengthSeekBar"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:max="50"
-                    android:progress="25" />
-
-                <TextView
-                    android:id="@+id/strideLengthValueText"
-                    android:layout_width="55dp"
-                    android:layout_height="wrap_content"
-                    android:text="0.75m"
-                    android:textColor="#FFFFFF"
-                    android:textSize="12sp"
-                    android:textAlignment="textEnd" />
-            </LinearLayout>
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Kalorien pro km"
-                android:textColor="#FFFFFF"
-                android:textSize="12sp"
-                android:layout_marginBottom="4dp" />
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical">
-
-                <SeekBar
-                    android:id="@+id/caloriesSeekBar"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:max="100"
-                    android:progress="60" />
-
-                <TextView
-                    android:id="@+id/caloriesValueText"
-                    android:layout_width="55dp"
-                    android:layout_height="wrap_content"
-                    android:text="60 kcal"
-                    android:textColor="#FFFFFF"
-                    android:textSize="12sp"
-                    android:textAlignment="textEnd" />
-            </LinearLayout>
-        </LinearLayout>
-
         <!-- Info Section -->
         <TextView
             android:id="@+id/appVersionText"
@@ -599,7 +610,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="#C0000000"
+    android:background="#E8000000"
     android:gravity="center"
     android:paddingStart="16dp"
     android:paddingEnd="16dp"
@@ -621,7 +632,7 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:background="#30FFFFFF"
+        android:background="#50FFFFFF"
         android:padding="8dp" />
 
     <LinearLayout
